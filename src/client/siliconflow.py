@@ -1,4 +1,5 @@
 import json
+import requests
 from .openai import MCPClientOpenAI, logger
 
 
@@ -16,11 +17,13 @@ class MCPClientSiliconflow(MCPClientOpenAI):
 
     def response_raise_status(self, response):
         try:
-            json_data = response.json()
-            if message := json_data.get("message"):
-                if message == "Function call is not supported for this model":
-                    logger.error("此模型不支持工具调用")
-                raise Exception(message)
-        except json.JSONDecodeError:
-            ...
-        response.raise_for_status()
+            response.raise_for_status()
+        except requests.exceptions.HTTPError:
+            try:
+                json_data = response.json()
+                if message := json_data.get("message"):
+                    if message == "Function call is not supported for this model":
+                        logger.error("此模型不支持工具调用")
+                    raise Exception(message)
+            except json.JSONDecodeError:
+                ...

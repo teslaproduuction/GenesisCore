@@ -61,13 +61,15 @@ class MCPClientLocalOllama(MCPClientOpenAI):
 
     def response_raise_status(self, response: requests.Response):
         try:
-            json_data = response.json()
-            error = json_data.get("error", "")
-            if message := error.get("message", ""):
-                if "does not support tools" in message:
-                    logger.error("当前模型不支持工具调用, 请更换模型")
-                raise Exception(message)
-            print(json_data)
-        except json.JSONDecodeError:
-            ...
-        response.raise_for_status()
+            response.raise_for_status()
+        except requests.exceptions.HTTPError:
+            try:
+                json_data = response.json()
+                error = json_data.get("error", "")
+                if message := error.get("message", ""):
+                    if "does not support tools" in message:
+                        logger.error("当前模型不支持工具调用, 请更换模型")
+                    raise Exception(message)
+                print(json_data)
+            except json.JSONDecodeError:
+                raise

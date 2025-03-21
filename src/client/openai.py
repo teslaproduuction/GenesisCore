@@ -140,16 +140,18 @@ class MCPClientOpenAI(MCPClientBase):
 
     def response_raise_status(self, response: requests.Response):
         try:
-            json_data = response.json()
-            error = json_data.get("error", {})
-            if message := error.get("message"):
-                if "tools is not supported" in message:
-                    logger.error("此模型不支持工具调用")
-                raise Exception(message)
-            print(json_data)
-        except json.JSONDecodeError:
-            ...
-        response.raise_for_status()
+            response.raise_for_status()
+        except requests.exceptions.HTTPError:
+            try:
+                json_data = response.json()
+                error = json_data.get("error", {})
+                if message := error.get("message"):
+                    if "tools is not supported" in message:
+                        logger.error("此模型不支持工具调用")
+                    raise Exception(message)
+                print(json_data)
+            except json.JSONDecodeError:
+                ...
 
     async def process_query(self, query: str) -> list:
         headers = {
@@ -189,7 +191,7 @@ class MCPClientOpenAI(MCPClientBase):
                     continue
                 choice = json_data.get("choices", [{}])[0]
                 delta = choice.get("delta", {})
-                if not delta and choice.get("finish_reason") == "stop":
+                if not delta:
                     print("无delta原始数据:", line)
                     continue
                 # print("delta原始数据:", delta)
