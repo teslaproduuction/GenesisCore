@@ -148,6 +148,9 @@ class MCPClientOpenAI(MCPClientBase):
                 if message := error.get("message"):
                     if "tools is not supported" in message:
                         logger.error("此模型不支持工具调用")
+                    # for deepseek
+                    if "does not support Function Calling" in message:
+                        logger.error("此模型不支持工具调用")
                     raise Exception(message)
                 print(json_data)
             except json.JSONDecodeError:
