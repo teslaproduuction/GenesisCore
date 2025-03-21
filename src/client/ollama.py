@@ -2,10 +2,10 @@ import bpy
 import requests
 import json
 from copy import deepcopy
-from .base import MCPClientBase
+from .openai import MCPClientOpenAI, logger
 
 
-class MCPClientLocalOllama(MCPClientBase):
+class MCPClientLocalOllama(MCPClientOpenAI):
     @classmethod
     def info(cls):
         return {
@@ -14,163 +14,60 @@ class MCPClientLocalOllama(MCPClientBase):
             "version": "1.0.0",
         }
 
-    def __init__(self, url="http://localhost:11434/api/chat", model="", stream=True):
-        self.url = url
-        self.model = model
-        self.stream = stream
-        super().__init__()
+    def __init__(self, base_url="http://localhost:11434", api_key="ollama", model="", stream=True):
+        super().__init__(base_url, api_key=api_key, model=model, stream=stream)
+
+    def get_chat_url(self):
+        res = f"{self.base_url}/v1/chat/completions"
+        if not res.startswith("http"):
+            res = f"http://{res}"
+        return res
+
+    def fetch_models_ex(self):
+        headers = {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "Authorization": f"Bearer {self.api_key}",
+        }
+
+        model_url = f"{self.base_url}/v1/models"
+        if not model_url.startswith("http"):
+            model_url = f"http://{model_url}"
+        try:
+            response = requests.get(model_url, headers=headers)
+            models = response.json().get("data", [])
+            self.models = [model["id"] for model in models]
+        except Exception:
+            logger.error("获取模型列表失败, 请检查大模型服务商, API密钥及base url是否正确")
+        return self.models
 
     @classmethod
     def draw(cls, layout: bpy.types.UILayout):
         from ..preference import get_pref
 
         pref = get_pref()
+        layout.prop(pref, "api_key")
         layout.prop(pref, "host")
         layout.prop(pref, "port")
         layout.prop(pref, "model")
 
-    def init_config(self):
+    def reset_config(self):
         from ..preference import get_pref
 
         pref = get_pref()
-        self.url = f"{pref.host}:{pref.port}/api/chat"
+        self.base_url = f"{pref.host}:{pref.port}"
+        self.api_key = pref.api_key
         self.model = pref.model
 
-    async def prepare_tools(self):
-        response = await self.session.list_tools()
-        tools = []
-        for tool in response.tools:
-            tool_info = {
-                "type": "function",
-                "function": {
-                    "name": tool.name,
-                    "description": tool.description,
-                    # "parameters": {
-                    #     "type": "object",
-                    #     "properties": {
-                    #         "city": {
-                    #             "type": "string",
-                    #             "description": "The name of the city",
-                    #         },
-                    #     },
-                    #     "required": ["city"],
-                    # },
-                },
-            }
-            parameters = deepcopy(tool.inputSchema)
-            parameters.pop("title", None)
-            for info in parameters["properties"].values():
-                info.pop("title", None)
-            tool_info["function"]["parameters"] = parameters
-            tools.append(tool_info)
-        return tools
-
-    async def process_query(self, query: str) -> list:
-        # TODO: ollama支持str 的枚举类型 https://github.com/ollama/ollama/blob/main/docs/api.md#chat-request-with-tools
-        headers = {
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-        }
-
-        data = {
-            "model": self.model,
-            "messages": [{"role": "system", "content": self.system_prompt()}, {"role": "user", "content": query}],
-            "tools": await self.prepare_tools(),
-            "stream": self.stream,
-        }
-
-        messages = data["messages"]
-        response = requests.request("POST", self.url, headers=headers, json=data, stream=self.stream)
-
-        if not self.stream:
-            while True:
-                try:
-                    json_data = response.json()
-                except Exception:
-                    break
-                self.tool_called = False
-
-                resp_messages = json_data.get("message", {})
-                if content := resp_messages.get("content"):
-                    print(content)
-                    messages.append({"role": "assistant", "content": content})
-                tool_calls = resp_messages.get("tool_calls", [{}])
-                for tool in tool_calls:
-                    if not (f := tool.get("function")):
-                        continue
-                    if not (fn_name := f.get("name")):
-                        continue
-                    if not (arguments := f.get("arguments")):
-                        arguments = {}
-                    messages.append({"role": "assistant", "content": "", "tool_calls": [tool]})
-                    print(messages)
-                    print(f"调用工具: {fn_name} , 参数: {arguments}")
-                    res = await self.session.call_tool(fn_name, arguments)
-                    self.tool_called = True
-                    for res_content in res.content:
-                        tool_call_result = {"role": "tool", "content": "", "name": fn_name}
-                        messages.append(tool_call_result)
-                        if res_content.type == "text":
-                            tool_call_result["content"] = res_content.text
-                        if res_content.type == "image":
-                            tool_call_result["images"] = [res_content.data]
-                        if res_content.type == "resource":
-                            tool_call_result["content"] = res_content.resource
-                        result = tool_call_result["content"]
-                        if isinstance(result, str) and result.startswith("Error"):
-                            print(result)
-                            return ""
-                        if isinstance(result, str) and result:
-                            print("调用工具结果: ", result)
-                if not self.tool_called:
-                    break
-                response = requests.request("POST", self.url, headers=headers, json=data, stream=self.stream)
-            return
-        actions = []
-        while True:
-            self.tool_called = False
-            for line in response.iter_lines():
-                if not line:
-                    continue
-                # print(line)
-                json_data = json.loads(line.decode("utf-8"))
-                if "error" in json_data:
-                    print("错误", json_data["error"])
-                    continue
-                resp_messages = json_data.get("message", {})
-                if content := resp_messages.get("content"):
-                    print(content, end="", flush=True)
-                    messages.append({"role": "assistant", "content": content})
-                # "message": {"role": "assistant", "tool_calls": [{"function": {"name": "xxx", "arguments": {}}}]
-                tool_calls = resp_messages.get("tool_calls", [])
-                for tool in tool_calls:
-                    if not (f := tool.get("function")):
-                        continue
-                    if not (fn_name := f.get("name")):
-                        continue
-                    if not (arguments := f.get("arguments")):
-                        arguments = {}
-                    messages.append({"role": "assistant", "content": "", "tool_calls": [tool]})
-                    print(messages)
-                    print(f"调用工具: {fn_name} , 参数: {arguments}")
-                    res = await self.session.call_tool(fn_name, arguments)
-                    self.tool_called = True
-                    for res_content in res.content:
-                        tool_call_result = {"role": "tool", "content": "", "name": fn_name}
-                        messages.append(tool_call_result)
-                        if res_content.type == "text":
-                            tool_call_result["content"] = res_content.text
-                        if res_content.type == "image":
-                            tool_call_result["images"] = [res_content.data]
-                        if res_content.type == "resource":
-                            tool_call_result["content"] = res_content.resource
-                        result = tool_call_result["content"]
-                        if isinstance(result, str) and result.startswith("Error"):
-                            print(result)
-                        if isinstance(result, str) and result:
-                            print("调用工具结果: ", result)
-                actions += tool_calls
-            if not self.tool_called:
-                break
-            response = requests.request("POST", self.url, headers=headers, json=data, stream=self.stream)
-        return actions
+    def response_raise_status(self, response: requests.Response):
+        try:
+            json_data = response.json()
+            error = json_data.get("error", "")
+            if message := error.get("message", ""):
+                if "does not support tools" in message:
+                    logger.error("当前模型不支持工具调用, 请更换模型")
+                raise Exception(message)
+            print(json_data)
+        except json.JSONDecodeError:
+            ...
+        response.raise_for_status()

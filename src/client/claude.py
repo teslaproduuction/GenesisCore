@@ -1,7 +1,7 @@
 import json
 import requests
 
-from .base import MCPClientBase
+from .base import MCPClientBase, logger
 
 
 class MCPClientClaude(MCPClientBase):
@@ -13,12 +13,36 @@ class MCPClientClaude(MCPClientBase):
             "version": "0.0.1",
         }
 
-    def __init__(self, url="https://api.anthropic.com/v1/messages", api_key="", model="", stream=True):
-        self.url = url
-        self.api_key = api_key
-        self.model = model
-        self.stream = stream
-        super().__init__()
+    def __init__(self, base_url="https://api.anthropic.com", api_key="", model="", stream=True):
+        super().__init__(base_url, api_key, model, stream)
+
+    def get_chat_url(self):
+        return f"{self.base_url}/v1/messages"
+
+    def fetch_models_ex(self):
+        headers = {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "anthropic-version": "2023-06-01",
+            "x-api-key": self.api_key,
+        }
+
+        model_url = f"{self.base_url}/v1/models"
+        if not self.api_key:
+            logger.error("API密钥不能为空")
+            return []
+        try:
+            response = requests.get(model_url, headers=headers)
+            json_data = response.json()
+            error = json_data.get("error", {})
+            if error:
+                raise Exception(error.get("message", "Unknown error"))
+
+            models = response.json().get("data", [])
+            self.models = [model["id"] for model in models]
+        except Exception as e:
+            logger.error(f"获取模型列表失败, 请检查大模型服务商, API密钥及base url是否正确: {e}")
+        return self.models
 
     async def process_query(self, query: str) -> list:
         headers = {
@@ -31,7 +55,7 @@ class MCPClientClaude(MCPClientBase):
             "model": self.model,
             "messages": [],
             "tools": None,
-            "stream": True,
+            "stream": self.stream,
         }
 
         messages = [{"role": "user", "content": query}]
@@ -65,7 +89,7 @@ class MCPClientClaude(MCPClientBase):
                 parameters[k] = v
             tools.append(tool_info)
         data["tools"] = tools
-        response = requests.request("POST", self.url, headers=headers, json=data, stream=data["stream"])
+        response = requests.request("POST", self.get_chat_url(), headers=headers, json=data, stream=self.stream)
         actions = []
         for line in response.iter_lines():
             if not line:
@@ -131,7 +155,7 @@ class MCPClientClaude(MCPClientBase):
                     elif res_content.type == "resource":
                         messages.append({"role": "user", "content": res_content.resource})
                 if has_json_result:
-                    response = requests.request("POST", self.url, headers=headers, json=data, stream=data["stream"])
+                    response = requests.request("POST", self.get_chat_url(), headers=headers, json=data, stream=self.stream)
             actions += tool_calls
         print()
         return actions
