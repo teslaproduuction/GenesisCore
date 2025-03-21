@@ -13,11 +13,12 @@ class MCPClientClaude(MCPClientBase):
             "version": "0.0.1",
         }
 
-    def __init__(self, url="https://api.anthropic.com/v1/messages", api_key="", model=""):
-        super().__init__()
+    def __init__(self, url="https://api.anthropic.com/v1/messages", api_key="", model="", stream=True):
         self.url = url
         self.api_key = api_key
         self.model = model
+        self.stream = stream
+        super().__init__()
 
     async def process_query(self, query: str) -> list:
         headers = {

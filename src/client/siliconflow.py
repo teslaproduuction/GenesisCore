@@ -12,4 +12,3 @@ class MCPClientSiliconflow(MCPClientOpenAI):
 
     def __init__(self, url="https://api.siliconflow.cn/v1/chat/completions", api_key="", model="", stream=True):
         super().__init__(url, api_key, model, stream)
-        self.url = url

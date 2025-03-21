@@ -5,17 +5,13 @@ import asyncio
 from queue import Queue
 from threading import Thread
 from pathlib import Path
-from .client.deepseek import MCPClientDeepSeek
-from .client.ollama import MCPClientLocalOllama
-from .client.claude import MCPClientClaude
-from .client.siliconflow import MCPClientSiliconflow
-from .client.openai import MCPClientOpenAI
+from .client import MCPClientBase
 from .server.server import Server
 from .server.tools import ToolsPackageBase
 from .i18n.translations.zh_HANS import OPS_TCTX
 from .logger import logger
+from .preference import get_pref
 
-CommandQueue = Queue()
 
 test_config_path = Path(__file__).parent.parent / "test_config.json"
 test_config = {}
@@ -30,22 +26,38 @@ class RunCommand(bpy.types.Operator):
     bl_translation_context = OPS_TCTX
 
     def execute(self, context):
+        pref = get_pref()
         for tname in ToolsPackageBase.get_all_tool_packages_names():
             tp = ToolsPackageBase.get_package(tname)
             if not tp:
                 continue
             tools = tp.get_all_tools()
-            if tname in bpy.context.scene.mcp_props.tools:
+            if tname in pref.tools:
                 # 注册工具
                 Server.register_tools(tools)
             else:
                 # 注销工具
                 Server.unregister_tools(tools)
+        selected_client = pref.provider
+        for clientclass in MCPClientBase.get_all_clients():
+            cname = clientclass.__name__
+            client: MCPClientBase = pref.get_client_by_name(cname)
+            if not client:
+                continue
+            if cname != selected_client:
+                client.stop_client()
+                continue
 
+        client: MCPClientBase = pref.get_client_by_name(selected_client)
+        if not client:
+            self.report({"ERROR"}, "No client selected")
+            return {"FINISHED"}
+        client.try_start_client()
+        # print(all_clients)
         command = bpy.context.scene.mcp_props.command
         if not command:
             return {"FINISHED"}
-        CommandQueue.put(command)
+        client.instance.command_queue.put(command)
         return {"FINISHED"}
 
 
@@ -98,40 +110,6 @@ def get_client():
     return client
 
 
-async def test_main():
-    while True:
-        try:
-            client = get_client()
-            await client.connect_to_server()
-            while True:
-                try:
-                    if client.should_stop:
-                        break
-                    try:
-                        query = CommandQueue.get_nowait()
-                    except queue.Empty:
-                        await asyncio.sleep(0.2)
-                        continue
-                    logger.info(f"当前命令: {query}")
-                    response = await client.process_query(query)
-                    print()
-                    logger.info(f"处理完成: {query}")
-                    # client.session.call_tool
-                    # print(response)
-                except Exception:
-                    import traceback
-
-                    traceback.print_exc()
-        finally:
-            await client.cleanup()
-
-
-def run_client():
-    asyncio.run(test_main())
-
-
-job = Thread(target=run_client, daemon=True)
-
 clss = [
     RunCommand,
 ]
@@ -141,7 +119,6 @@ reg, unreg = bpy.utils.register_classes_factory(clss)
 
 
 def register():
-    job.start()
     reg()
 
 

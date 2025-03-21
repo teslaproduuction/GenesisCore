@@ -1,6 +1,7 @@
 import bpy
 
 reg_modules = [
+    "preference",
     "i18n",
     "server",
     "client",

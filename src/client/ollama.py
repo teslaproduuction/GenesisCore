@@ -1,3 +1,4 @@
+import bpy
 import requests
 import json
 from copy import deepcopy
@@ -8,16 +9,32 @@ class MCPClientLocalOllama(MCPClientBase):
     @classmethod
     def info(cls):
         return {
-            "name": "ollama",
-            "description": "Ollama",
+            "name": "LocalOllama",
+            "description": "Local Ollama client",
             "version": "1.0.0",
         }
 
     def __init__(self, url="http://localhost:11434/api/chat", model="", stream=True):
-        super().__init__()
         self.url = url
         self.model = model
         self.stream = stream
+        super().__init__()
+
+    @classmethod
+    def draw(cls, layout: bpy.types.UILayout):
+        from ..preference import get_pref
+
+        pref = get_pref()
+        layout.prop(pref, "host")
+        layout.prop(pref, "port")
+        layout.prop(pref, "model")
+
+    def init_config(self):
+        from ..preference import get_pref
+
+        pref = get_pref()
+        self.url = f"{pref.host}:{pref.port}/api/chat"
+        self.model = pref.model
 
     async def prepare_tools(self):
         response = await self.session.list_tools()

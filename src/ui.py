@@ -1,6 +1,8 @@
 import bpy
 from .operator import RunCommand
 from .i18n.translations.zh_HANS import PANEL_TCTX
+from .preference import get_pref
+
 
 class MCP_PT_Client(bpy.types.Panel):
     bl_label = "Genesis Engine Frontend"
@@ -11,21 +13,20 @@ class MCP_PT_Client(bpy.types.Panel):
     bl_translation_context = PANEL_TCTX
 
     def draw(self, context):
-        layout = self.layout
-        
-        mcp_props = bpy.context.scene.mcp_props
-        box = layout.box()
-        box.column().prop(mcp_props, "tools", expand=True)
-        box.prop(mcp_props, "command")
-        col = box.column()
-        col.scale_y = 2
-        col.operator(RunCommand.bl_idname)
-        box = layout.box()
-        box.enabled = False
-        box.label(text="API Settings", text_ctxt=PANEL_TCTX)
-        box.prop(mcp_props, "api_key")
-        box.prop(mcp_props, "base_url")
-        box.prop(mcp_props, "model")
+        try:
+            layout = self.layout
+            pref = get_pref()
+            mcp_props = bpy.context.scene.mcp_props
+            box = layout.box()
+            box.column().prop(pref, "tools", expand=True)
+            box.prop(mcp_props, "command")
+            col = box.column()
+            col.scale_y = 2
+            col.operator(RunCommand.bl_idname)
+            box = layout.box()
+            pref.draw_ex(box)
+        except Exception as e:
+            print(e)
 
 
 clss = [

@@ -12,4 +12,3 @@ class MCPClientDeepSeek(MCPClientOpenAI):
 
     def __init__(self, url="https://api.deepseek.com/chat/completions", api_key="", model="", stream=True):
         super().__init__(url, api_key, model, stream)
-        self.url = url

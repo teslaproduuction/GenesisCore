@@ -5,6 +5,12 @@ OPS_TCTX = "GenesisCoreOpsTCTX"
 translations = (
     ("Command", "命令", PROP_TCTX),
     ("Model", "模型", PROP_TCTX),
+    ("LLM Provider", "大模型", PROP_TCTX),
+    ("Host", "主机", PROP_TCTX),
+    ("Port", "端口", PROP_TCTX),
+    ("OpenAI Compatible", "OpenAI兼容", PROP_TCTX),
+    ("DeepSeek", "深度求索", PROP_TCTX),
+    ("Siliconflow", "硅基流动", PROP_TCTX),
     ("ToolPackage", "工具包", PROP_TCTX),
     ("CommonTools", "通用工具包", PROP_TCTX),
     ("Common tools for Blender.", "Blender的通用工具"),

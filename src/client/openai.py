@@ -1,4 +1,5 @@
 import json
+import bpy
 import requests
 import re
 from copy import deepcopy
@@ -10,17 +11,25 @@ class MCPClientOpenAI(MCPClientBase):
     @classmethod
     def info(cls):
         return {
-            "name": "OpenAI",
+            "name": "OpenAI Compatible",
             "description": "A client that uses OpenAI for the rendering.",
             "version": "0.0.1",
         }
 
     def __init__(self, url="https://api.openai.com/v1/chat/completions", api_key="", model="", stream=True):
-        super().__init__()
         self.url = url
         self.api_key = api_key
         self.model = model
         self.stream = stream
+        super().__init__()
+
+    def init_config(self):
+        from ..preference import get_pref
+
+        pref = get_pref()
+        self.url = pref.base_url
+        self.api_key = pref.api_key
+        self.model = pref.model
 
     async def prepare_tools(self):
         response = await self.session.list_tools()
@@ -100,7 +109,7 @@ class MCPClientOpenAI(MCPClientBase):
             raise e
 
     async def call_tool(self, fn_name: str, arguments: str | dict, tool_id: str = ""):
-        print() # 每次调用工具时，打印一个空行，方便查看日志
+        print()  # 每次调用工具时，打印一个空行，方便查看日志
         logger.info(f"尝试工具: {fn_name}, 参数: {arguments}")
         if isinstance(arguments, str):
             arguments = self.parse_arguments(arguments)
