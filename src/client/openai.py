@@ -3,7 +3,7 @@ import requests
 import re
 from copy import deepcopy
 
-from .base import MCPClientBase
+from .base import MCPClientBase, logger
 
 
 class MCPClientOpenAI(MCPClientBase):
@@ -96,13 +96,12 @@ class MCPClientOpenAI(MCPClientBase):
             # else:
             #     raise Exception("Json 解析错误")
         except Exception as e:
-            print(
-                f"错误Json --- \n{arguments}\n错误Json ---",
-            )
+            logger.info(f"错误参数:\n{arguments}\n")
             raise e
 
     async def call_tool(self, fn_name: str, arguments: str | dict, tool_id: str = ""):
-        print(f"尝试调用工具: {fn_name} , 参数: {arguments}")
+        print() # 每次调用工具时，打印一个空行，方便查看日志
+        logger.info(f"尝试工具: {fn_name}, 参数: {arguments}")
         if isinstance(arguments, str):
             arguments = self.parse_arguments(arguments)
 
@@ -118,7 +117,7 @@ class MCPClientOpenAI(MCPClientBase):
             elif res_content.type == "resource":
                 result = res_content.resource
             if isinstance(result, str) and result.startswith("Error"):
-                print(result)
+                logger.error(result)
             tool_call_result["content"] = f"Selected tool: {fn_name}\nResult: {result}"
             results.append(tool_call_result)
         return results

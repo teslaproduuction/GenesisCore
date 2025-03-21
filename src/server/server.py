@@ -92,7 +92,7 @@ class Server:
     def main(cls):
         if not cls.server:
             cls.init()
-        logger.info("Starting MCP server...")
+        logger.info("创世核心正在运转...")
         cls.server.run(transport="sse")
 
     @classmethod

@@ -13,7 +13,7 @@ from .client.openai import MCPClientOpenAI
 from .server.server import Server
 from .server.tools import ToolsPackageBase
 from .i18n.translations.zh_HANS import OPS_TCTX
-
+from .logger import logger
 
 CommandQueue = Queue()
 
@@ -112,9 +112,10 @@ async def test_main():
                     except queue.Empty:
                         await asyncio.sleep(0.2)
                         continue
-                    print(f"收到命令: {query}")
+                    logger.info(f"当前命令: {query}")
                     response = await client.process_query(query)
-                    print(f"\n处理完成: {query}")
+                    print()
+                    logger.info(f"处理完成: {query}")
                     # client.session.call_tool
                     # print(response)
                 except Exception:

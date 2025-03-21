@@ -3,7 +3,7 @@ from logging import handlers
 from pathlib import Path
 DEBUG = True
 LOGFILE = Path(__file__).parent.joinpath("logs", "runtime.log")
-NAME = "__package__"
+NAME = "创世核心"
 
 L = logging.WARNING
 if DEBUG:

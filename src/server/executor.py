@@ -22,26 +22,28 @@ class BlenderExecutor:
         return cls.instance
 
     def send_function_call(self, func, params):
-        command = {"func": func, "params": params or {}}
+        name = func.__name__
+        command = {"func": func, "name": name,"params": params or {}}
 
-        logger.info(f"发送命令: {func} 参数: {params}")
+        logger.info(f"收到命令: {name} 参数: {params}")
         response = Timer.wait_run_with_context(self.execute_function)(command)
-        logger.info(f"Response parsed, status: {response.get('status', 'unknown')}")
+        logger.info(f"执行状态: {response.get('status', 'unknown')}")
 
         if response.get("status") == "error":
             logger.error(f"Blender error: {response.get('message')}")
             raise Exception(response.get("message", "Unknown error from Blender"))
         result_str = rounding_dumps(response.get("result", {}), ensure_ascii=False)
-        print(f"-----------------------------\n所选工具: {func.__name__}\n执行结果: {result_str}\n-----------------------------")
+        print(f"-----------------------------\n所选工具: {name}\n执行结果: {result_str}\n-----------------------------")
         return result_str
 
     def execute_function(self, command):
-        logger.info(f"命令执行: {command}")
         func = command.get("func")
+        name = command.get("name") or func.__name__
         try:
             params = command.get("params", {})
+            logger.info(f"命令执行: {name} 参数: {params}")
             result = func(**params)
             return {"status": "success", "result": result}
         except Exception as e:
-            logger.error(f"Error execute {func.__name__}: {str(e)}")
+            logger.error(f"Error execute {name}: {str(e)}")
             return {"status": "error", "message": str(e)}

@@ -5,7 +5,9 @@ from contextlib import AsyncExitStack
 from pathlib import Path
 from mcp import ClientSession
 from mcp.client.sse import sse_client
+from ..logger import getLogger
 
+logger = getLogger("  BlenderClient")
 
 @dataclass
 class ContentEmpty:
