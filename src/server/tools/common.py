@@ -20,7 +20,7 @@ class ToolsPackageBase:
 
     @classmethod
     def get_enum_items(cls):
-        return [(t.__name__, t.__name__, t.__doc__ or "", 1 << i) for i, t in enumerate(cls.get_all_tool_packages())]
+        return [(t.__name__, t.__name__, t.__doc__.strip() or "", 1 << i) for i, t in enumerate(cls.get_all_tool_packages())]
 
     @classmethod
     def get_all_tools(cls):

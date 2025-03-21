@@ -3,7 +3,7 @@ from .common import ToolsPackageBase
 
 class AssetTools(ToolsPackageBase):
     """
-    资产工具包
+    Custom Asset Tools.
     """
 
     def list_all_custom_assets() -> dict[str]:

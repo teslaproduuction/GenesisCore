@@ -1,5 +1,4 @@
 import re
-import logging
 import asyncio
 
 from functools import update_wrapper
@@ -8,11 +7,9 @@ from threading import Thread
 
 from mcp.server.fastmcp import FastMCP
 from .executor import BlenderExecutor
+from ..logger import getLogger
 
-
-# Configure logging
-logging.basicConfig(level=logging.INFO, format="%(name)s - %(levelname)s - %(message)s")
-logger = logging.getLogger("BlenderMCPServer")
+logger = getLogger("BlenderMCPServer")
 
 
 class MakeTool:

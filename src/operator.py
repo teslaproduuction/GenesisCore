@@ -12,6 +12,8 @@ from .client.siliconflow import MCPClientSiliconflow
 from .client.openai import MCPClientOpenAI
 from .server.server import Server
 from .server.tools import ToolsPackageBase
+from .i18n.translations.zh_HANS import OPS_TCTX
+
 
 CommandQueue = Queue()
 
@@ -24,7 +26,8 @@ if test_config_path.exists():
 class RunCommand(bpy.types.Operator):
     bl_idname = "mcp.run"
     bl_label = "Run"
-    bl_description = "Run the client"
+    bl_description = "Run the command"
+    bl_translation_context = OPS_TCTX
 
     def execute(self, context):
         for tname in ToolsPackageBase.get_all_tool_packages_names():
@@ -57,7 +60,7 @@ def get_client():
     # model = "anthropic/claude-3.7-sonnet"
     # model = "openai/gpt-4o"
     # client = MCPClientOpenAI(url=base_url, api_key=api_key, model=model)
-    
+
     # Ollama
     # host = test_config.get("LocalOllama", {}).get("host", "localhost")
     # port = test_config.get("LocalOllama", {}).get("port", 11434)

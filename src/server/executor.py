@@ -3,9 +3,9 @@ import logging
 import json
 from .timer import Timer
 from .utils import rounding_dumps
+from ..logger import getLogger
 
-logging.basicConfig(level=logging.INFO, format="%(name)s - %(levelname)s - %(message)s")
-logger = logging.getLogger("BlenderExecutor")
+logger = getLogger("BlenderExecutor")
 
 
 class BlenderExecutor:
