@@ -22,6 +22,7 @@ class MCP_PT_Client(bpy.types.Panel):
             box.prop(mcp_props, "command")
             col = box.column()
             col.scale_y = 2
+            col.enabled = bool(bpy.context.scene.mcp_props.command)
             col.operator(RunCommand.bl_idname)
             box = layout.box()
             pref.draw_ex(box)

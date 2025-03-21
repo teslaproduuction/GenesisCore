@@ -4,6 +4,7 @@ reg_modules = [
     "preference",
     "i18n",
     "server",
+    "timer",
     "client",
     "operator",
     "props",

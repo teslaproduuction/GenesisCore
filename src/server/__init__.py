@@ -1,7 +1,6 @@
 import bpy
 
 reg_modules = [
-    "timer",
     "server",
 ]
 

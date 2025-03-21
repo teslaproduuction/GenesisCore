@@ -16,20 +16,27 @@ class MCPClientOpenAI(MCPClientBase):
             "version": "0.0.1",
         }
 
-    def __init__(self, url="https://api.openai.com/v1/chat/completions", api_key="", model="", stream=True):
-        self.url = url
-        self.api_key = api_key
-        self.model = model
-        self.stream = stream
-        super().__init__()
+    def __init__(self, base_url="https://api.openai.com", api_key="", model="", stream=True):
+        super().__init__(base_url, api_key, model, stream)
 
-    def init_config(self):
-        from ..preference import get_pref
+    def get_chat_url(self):
+        return f"{self.base_url}/v1/chat/completions"
 
-        pref = get_pref()
-        self.url = pref.base_url
-        self.api_key = pref.api_key
-        self.model = pref.model
+    def fetch_models_ex(self):
+        headers = {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "Authorization": f"Bearer {self.api_key}",
+        }
+
+        model_url = f"{self.base_url}/v1/models"
+        try:
+            response = requests.get(model_url, headers=headers)
+            models = response.json().get("data", [])
+            self.models = [model["id"] for model in models]
+        except Exception:
+            logger.error("获取模型列表失败, 请检查大模型服务商, API密钥及base url是否正确")
+        return self.models
 
     async def prepare_tools(self):
         response = await self.session.list_tools()
@@ -110,7 +117,7 @@ class MCPClientOpenAI(MCPClientBase):
 
     async def call_tool(self, fn_name: str, arguments: str | dict, tool_id: str = ""):
         print()  # 每次调用工具时，打印一个空行，方便查看日志
-        logger.info(f"尝试工具: {fn_name}, 参数: {arguments}")
+        logger.info(f"尝试工具: {fn_name} 参数: {arguments}")
         if isinstance(arguments, str):
             arguments = self.parse_arguments(arguments)
 
@@ -130,6 +137,19 @@ class MCPClientOpenAI(MCPClientBase):
             tool_call_result["content"] = f"Selected tool: {fn_name}\nResult: {result}"
             results.append(tool_call_result)
         return results
+
+    def response_raise_status(self, response: requests.Response):
+        try:
+            json_data = response.json()
+            error = json_data.get("error", {})
+            if message := error.get("message"):
+                if "tools is not supported" in message:
+                    logger.error("此模型不支持工具调用")
+                raise Exception(message)
+            print(json_data)
+        except json.JSONDecodeError:
+            ...
+        response.raise_for_status()
 
     async def process_query(self, query: str) -> list:
         headers = {
@@ -153,21 +173,23 @@ class MCPClientOpenAI(MCPClientBase):
         while True:
             last_call_index = -1
             tool_calls = {}
-            response = requests.request("POST", self.url, headers=headers, json=data, stream=self.stream)
-            response.raise_for_status()
+            response = requests.request("POST", self.get_chat_url(), headers=headers, json=data, stream=self.stream)
+            self.response_raise_status(response)
             response.encoding = "utf-8"
             # print("---------------------------------------START---------------------------------------")
 
             for line in response.iter_lines():
                 if not line:
                     continue
+                if self.should_stop:
+                    break
                 # print("原始数据:", line)
                 if not (json_data := self.parse_line(line)):
                     # print("无法解析原始数据:", line)
                     continue
                 choice = json_data.get("choices", [{}])[0]
                 delta = choice.get("delta", {})
-                if not delta:
+                if not delta and choice.get("finish_reason") == "stop":
                     print("无delta原始数据:", line)
                     continue
                 # print("delta原始数据:", delta)
@@ -211,6 +233,8 @@ class MCPClientOpenAI(MCPClientBase):
                 except json.JSONDecodeError:
                     continue
             # print("----------------------------------------END-----------------------------------------")
+            if self.should_stop:
+                break
             if last_call_index == -1:
                 break
             # 保证执行最后一个工具调用

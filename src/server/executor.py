@@ -1,7 +1,7 @@
 import functools
 import logging
 import json
-from .timer import Timer
+from ..timer import Timer
 from .utils import rounding_dumps
 from ..logger import getLogger
 

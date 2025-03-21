@@ -1,4 +1,5 @@
-from .openai import MCPClientOpenAI
+import json
+from .openai import MCPClientOpenAI, logger
 
 
 class MCPClientSiliconflow(MCPClientOpenAI):
@@ -10,5 +11,16 @@ class MCPClientSiliconflow(MCPClientOpenAI):
             "version": "0.0.1",
         }
 
-    def __init__(self, url="https://api.siliconflow.cn/v1/chat/completions", api_key="", model="", stream=True):
-        super().__init__(url, api_key, model, stream)
+    def __init__(self, base_url="https://api.siliconflow.cn", api_key="", model="", stream=True):
+        super().__init__(base_url, api_key, model, stream)
+
+    def response_raise_status(self, response):
+        try:
+            json_data = response.json()
+            if message := json_data.get("message"):
+                if message == "Function call is not supported for this model":
+                    logger.error("此模型不支持工具调用")
+                raise Exception(message)
+        except json.JSONDecodeError:
+            ...
+        response.raise_for_status()

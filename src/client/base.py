@@ -2,6 +2,7 @@ import json
 import bpy
 import queue
 import asyncio
+import requests
 from threading import Thread
 from dataclasses import dataclass
 from typing import Union, Literal
@@ -9,6 +10,7 @@ from contextlib import AsyncExitStack
 from pathlib import Path
 from mcp import ClientSession
 from mcp.client.sse import sse_client
+from ..timer import Timer
 from ..logger import getLogger
 
 logger = getLogger("  BlenderClient")
@@ -50,19 +52,22 @@ class ResponseParser:
 
 
 class MCPClientBase:
-    instance: "MCPClientBase" = None
-    current_instance: "MCPClientBase" = None
+    client_pools: dict[object, "MCPClientBase"] = {}
     __clients__: dict[str, "MCPClientBase"] = {}
 
-    def __init__(self):
+    def __init__(self, base_url="https://api.deepseek.com", api_key="", model="", stream=True):
+        self._base_url = ""
+        self.base_url = base_url
+        self.api_key = api_key
+        self.model = model
+        self.stream = stream
         self.session: ClientSession = None
+        self.models = []
         self.exit_stack = AsyncExitStack()
-        self.tool_called = False
         self.should_stop = False
         self.command_queue = queue.Queue()
         self.is_running = False
-        self.__class__.instance = self
-        MCPClientBase.current_instance = self
+        self.push_instance(self)
         # self.response_parser = ResponseParser()
         # s = self.response_parser.parse_response("S")
 
@@ -72,10 +77,39 @@ class MCPClientBase:
             self.anthropic = Anthropic()
         except Exception:
             ...
-        self.init_config()
+        self.reset_config()
 
-    def init_config(self):
-        pass
+    @property
+    def base_url(self):
+        return self._base_url
+
+    @base_url.setter
+    def base_url(self, value):
+        self._base_url = value[:-1] if value.endswith("/") else value
+
+    def update(self):
+        Timer.put(self.reset_config)
+
+    def reset_config(self):
+        from ..preference import get_pref
+
+        pref = get_pref()
+        self.base_url = pref.base_url
+        self.api_key = pref.api_key
+        self.model = pref.model
+
+    def get_chat_url(self):
+        return ""
+
+    def fetch_models(self, force=False) -> list:
+        if self.models and not force:
+            return self.models
+        logger.info("正在获取模型列表...")
+        self.models = sorted(self.fetch_models_ex())
+        return self.models
+
+    def fetch_models_ex(self):
+        return []
 
     @classmethod
     def info(cls):
@@ -84,6 +118,18 @@ class MCPClientBase:
             "description": "A base class for MCP clients",
             "version": "0.1.0",
         }
+
+    @classmethod
+    def get(cls):
+        return cls.client_pools.get(cls, None)
+
+    @classmethod
+    def push_instance(cls, self):
+        cls.client_pools[cls] = self
+
+    @classmethod
+    def pop_instance(cls):
+        return cls.client_pools.pop(cls, None)
 
     @classmethod
     def get_all_clients(cls):
@@ -106,18 +152,18 @@ class MCPClientBase:
 
     @classmethod
     def stop_client(cls):
-        if not cls.instance:
+        if not (instance := cls.pop_instance()):
             return
-        cls.instance.should_stop = True
-        cls.instance = None
+        instance.should_stop = True
 
     @classmethod
     def try_start_client(cls):
-        if not cls.instance or cls.instance.should_stop:
-            cls.instance = cls()
-        instance = cls.instance
+        instance = cls.get()
+        if not instance or instance.should_stop:
+            cls.push_instance(cls())
+        instance = cls.get()
         if instance.is_running:
-            instance.init_config()
+            instance.reset_config()
             return
         instance.is_running = True
 
@@ -182,6 +228,9 @@ class MCPClientBase:
             print("Json解析错误", line)
         return {}
 
+    def response_raise_status(self, response):
+        pass
+
     async def process_query(self, query: str) -> str:
         """Process a query using Claude and available tools"""
         messages = [{"role": "user", "content": query}]
@@ -224,10 +273,12 @@ class MCPClientBase:
 
     async def main(self):
         try:
-            print("尝试连接到服务器")
+            logger.info("尝试连接到创世核心...")
             await self.connect_to_server()
+            logger.info("创世核心已连接!")
             while True:
                 try:
+                    self.update()
                     if self.should_stop:
                         break
                     try:
@@ -241,10 +292,15 @@ class MCPClientBase:
                     logger.info(f"处理完成: {query}")
                     # client.session.call_tool
                     # print(response)
+                except requests.exceptions.HTTPError as e:
+                    logger.warning(f"HTTP错误(请检查api_key, 模型使用情况或额度): {e}")
                 except Exception:
                     import traceback
 
                     traceback.print_exc()
+        except Exception as e:
+            logger.error(f"连接失败: {e}")
+            logger.error("请尝试改变网络环境(开关代理等)")
         finally:
             await self.cleanup()
 

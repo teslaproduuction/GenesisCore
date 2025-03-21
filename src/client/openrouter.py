@@ -3,20 +3,20 @@ from .base import logger
 from .openai import MCPClientOpenAI
 
 
-class MCPClientDeepSeek(MCPClientOpenAI):
+class MCPClientOpenRouter(MCPClientOpenAI):
     @classmethod
     def info(cls):
         return {
-            "name": "DeepSeek",
-            "description": "A client that uses DeepSeek for the rendering.",
+            "name": "OpenRouter",
+            "description": "OpenRouter API",
             "version": "0.0.1",
         }
 
-    def __init__(self, base_url="https://api.deepseek.com", api_key="", model="", stream=True):
+    def __init__(self, base_url="https://openrouter.ai", api_key="", model="", stream=True):
         super().__init__(base_url, api_key, model, stream)
 
     def get_chat_url(self):
-        return f"{self.base_url}/chat/completions"
+        return f"{self.base_url}/api/v1/chat/completions"
 
     def fetch_models_ex(self):
         headers = {
@@ -25,7 +25,7 @@ class MCPClientDeepSeek(MCPClientOpenAI):
             "Authorization": f"Bearer {self.api_key}",
         }
 
-        model_url = f"{self.base_url}/models"
+        model_url = f"{self.base_url}/api/v1/models"
         try:
             response = requests.get(model_url, headers=headers)
             models = response.json().get("data", [])

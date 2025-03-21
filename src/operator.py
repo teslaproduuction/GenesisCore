@@ -57,57 +57,8 @@ class RunCommand(bpy.types.Operator):
         command = bpy.context.scene.mcp_props.command
         if not command:
             return {"FINISHED"}
-        client.instance.command_queue.put(command)
+        client.get().command_queue.put(command)
         return {"FINISHED"}
-
-
-def get_client():
-    # OpenAI
-    # api_key = test_config.get("OpenAI", {}).get("api_key", "")
-    # base_url = test_config.get("OpenAI", {}).get("base_url", "")
-    # model = "gpt-3.5-turbo"
-    # OpenRouter
-    # api_key = test_config.get("OpenRouter", {}).get("api_key", "")
-    # base_url = test_config.get("OpenRouter", {}).get("base_url", "")
-    # model = "anthropic/claude-3.7-sonnet"
-    # model = "openai/gpt-4o"
-    # client = MCPClientOpenAI(url=base_url, api_key=api_key, model=model)
-
-    # Ollama
-    # host = test_config.get("LocalOllama", {}).get("host", "localhost")
-    # port = test_config.get("LocalOllama", {}).get("port", 11434)
-    # base_url = f"http://{host}:{port}/api/chat"
-    # model = "deepseek-r1:32b"
-    # model = "qwq"
-    # model = "llama3.2:3b"
-    # client = MCPClientLocalOllama(base_url, model=model)
-
-    # DeepSeek
-    # api_key = test_config.get("DeepSeek", {}).get("api_key", "")
-    # base_url = test_config.get("DeepSeek", {}).get("base_url", "")
-    # model = "deepseek-chat"
-    # client = MCPClientDeepSeek(url=base_url, api_key=api_key, model=model)
-
-    # Claude
-    # api_key = test_config.get("Claude", {}).get("api_key", "")
-    # base_url = test_config.get("Claude", {}).get("base_url", "")
-    # model = "claude-3-7-sonnet"
-    # client = MCPClientClaude(url=base_url, api_key=api_key, model=model)
-
-    # SiliconFlow
-    api_key = test_config.get("SiliconFlow", {}).get("api_key", "")
-    base_url = test_config.get("SiliconFlow", {}).get("base_url", "")
-    model = "Pro/Qwen/Qwen2.5-7B-Instruct"
-    model = "Pro/deepseek-ai/DeepSeek-R1"
-    model = "deepseek-ai/DeepSeek-V3"
-    model = "Qwen/QwQ-32B"
-    if not api_key:
-        api_key = test_config.get("api_key", "xxx")
-        base_url = test_config.get("base_url", "xxx")
-    print(api_key, base_url, model)
-    model = test_config.get("model", model)
-    client = MCPClientSiliconflow(url=base_url, api_key=api_key, model=model)
-    return client
 
 
 clss = [
