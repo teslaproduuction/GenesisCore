@@ -33,7 +33,10 @@ class BlenderExecutor:
             logger.error(f"Blender error: {response.get('message')}")
             raise Exception(response.get("message", "Unknown error from Blender"))
         result_str = rounding_dumps(response.get("result", {}), ensure_ascii=False)
-        print(f"-----------------------------\n所选工具: {name}\n执行结果: {result_str}\n-----------------------------")
+        print("\n--------------------------------", flush=True)
+        print(f"\t所选工具: {name}")
+        print(f"\t执行结果: {result_str}")
+        print("--------------------------------\n", flush=True)
         return result_str
 
     def execute_function(self, command):
