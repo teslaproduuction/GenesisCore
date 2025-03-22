@@ -46,7 +46,7 @@ class ObjectTools(ToolsPackageBase):
         return obj_info
 
     def create_object(
-        type: str = "CUBE",
+        entity_type: str = "CUBE",
         name: str = "New Object",
         location: List[float] = (0, 0, 0),
         rotation: List[float] = (0, 0, 0),
@@ -65,7 +65,7 @@ class ObjectTools(ToolsPackageBase):
         Create a new object in the Blender scene.
 
         Args:
-        - type: Object type (CUBE, SPHERE, CYLINDER, PLANE, CONE, TORUS, EMPTY, CAMERA, LIGHT)
+        - entity_type: Entity type to create (CUBE, SPHERE, CYLINDER, PLANE, CONE, TORUS, EMPTY, CAMERA, LIGHT)
         - name: Optional name for the object
         - location: Optional [x, y, z] location coordinates
         - rotation: Optional [x, y, z] rotation in radians
@@ -86,17 +86,17 @@ class ObjectTools(ToolsPackageBase):
         old_objects = set(bpy.data.objects)
         # Deselect all objects
         bpy.ops.object.select_all(action="DESELECT")
-        if type == "CUBE":
+        if entity_type == "CUBE":
             bpy.ops.mesh.primitive_cube_add(location=location, rotation=rotation, scale=scale)
-        elif type == "SPHERE":
+        elif entity_type == "SPHERE":
             bpy.ops.mesh.primitive_uv_sphere_add(location=location, rotation=rotation, scale=scale)
-        elif type == "CYLINDER":
+        elif entity_type == "CYLINDER":
             bpy.ops.mesh.primitive_cylinder_add(location=location, rotation=rotation, scale=scale)
-        elif type == "PLANE":
+        elif entity_type == "PLANE":
             bpy.ops.mesh.primitive_plane_add(location=location, rotation=rotation, scale=scale)
-        elif type == "CONE":
+        elif entity_type == "CONE":
             bpy.ops.mesh.primitive_cone_add(location=location, rotation=rotation, scale=scale)
-        elif type == "TORUS":
+        elif entity_type == "TORUS":
             bpy.ops.mesh.primitive_torus_add(
                 align=align,
                 location=location,
@@ -110,17 +110,17 @@ class ObjectTools(ToolsPackageBase):
                 abso_minor_rad=abso_minor_rad,
                 generate_uvs=generate_uvs,
             )
-        elif type == "EMPTY":
+        elif entity_type == "EMPTY":
             bpy.ops.object.empty_add(location=location, rotation=rotation, scale=scale)
-        elif type == "CAMERA":
+        elif entity_type == "CAMERA":
             bpy.ops.object.camera_add(location=location, rotation=rotation)
-        elif type == "LIGHT":
+        elif entity_type == "LIGHT":
             bpy.ops.object.light_add(type="POINT", location=location, rotation=rotation, scale=scale)
         else:
-            raise ValueError(f"Unsupported object type: {type}")
+            raise ValueError(f"Unsupported entity type: {entity_type}")
         new_objects = set(bpy.data.objects) - old_objects
         if len(new_objects) == 0:
-            raise Exception(f"Failed to create object: {type} {name}")
+            raise Exception(f"Failed to create entity: {entity_type} {name}")
         # Get the created object
         obj = list(new_objects)[0]
         # Rename the object if a name is provided
