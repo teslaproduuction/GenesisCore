@@ -77,67 +77,6 @@ class MCPClientOpenAI(MCPClientBase):
             tools.append(tool_info)
         return tools
 
-    def parse_arguments(self, arguments: str):
-        arguments = arguments.strip()
-        try:
-            try:
-                return json.loads(arguments)
-            except Exception:
-                pass
-            if not arguments.startswith("{") or not arguments.endswith("}"):
-                raise Exception("Json 解析错误")
-            return eval(arguments)
-            # if arguments.startswith("<tool_call>"):
-            #     arguments = arguments[len("<tool_call>") :]
-            # if arguments.endswith("</tool_call>"):
-            #     arguments = arguments[: -len("</tool_call>")]
-            # # AI大模型可能导致最后多花括号
-            # for i in range(5):
-            #     try:
-            #         return json.loads(arguments)
-            #     except Exception:
-            #         ...
-            #     try:
-            #         return json.loads(arguments.replace("\\", ""))
-            #     except Exception:
-            #         ...
-            #     try:
-            #         return json.loads(arguments.replace("\\", "").replace("'", '"'))
-            #     except Exception:
-            #         ...
-            #     print(f"Json 解析错误，尝试去掉最后一个字符: {arguments}")
-            #     import base64
-            #     print(base64.b64encode(arguments.encode()).decode())
-            #     arguments = arguments[:-1].strip()
-            # else:
-            #     raise Exception("Json 解析错误")
-        except Exception as e:
-            logger.info(f"错误参数:\n{arguments}\n")
-            raise e
-
-    async def call_tool(self, fn_name: str, arguments: str | dict, tool_id: str = ""):
-        print()  # 每次调用工具时，打印一个空行，方便查看日志
-        logger.info(f"尝试工具: {fn_name} 参数: {arguments}")
-        if isinstance(arguments, str):
-            arguments = self.parse_arguments(arguments)
-
-        res = await self.session.call_tool(fn_name, arguments)
-        results = []
-        for res_content in res.content:
-            tool_call_result = {"role": "tool", "content": "", "tool_call_id": tool_id, "name": fn_name}
-            result = ""
-            if res_content.type == "text":
-                result = res_content.text
-            elif res_content.type == "image":
-                result = res_content.data
-            elif res_content.type == "resource":
-                result = res_content.resource
-            if isinstance(result, str) and result.startswith("Error"):
-                logger.error(result)
-            tool_call_result["content"] = f"Selected tool: {fn_name}\nResult: {result}"
-            results.append(tool_call_result)
-        return results
-
     def response_raise_status(self, response: requests.Response):
         try:
             response.raise_for_status()
@@ -165,86 +104,81 @@ class MCPClientOpenAI(MCPClientBase):
 
         data = {
             "model": self.model,
-            "messages": [],
+            "messages": self.messages,
             "tools": None,
             "stream": self.stream,
         }
-
-        messages = data["messages"]
+        if not self.use_history:
+            self.messages.clear()
         # messages.append({"role": "system", "content": self.system_prompt()})
-        messages.append({"role": "user", "content": query})
+        self.messages.append({"role": "user", "content": query})
         data["tools"] = await self.prepare_tools()
-        response_text = ""
-        while True:
-            last_call_index = -1
-            tool_calls = {}
-            response = requests.request("POST", self.get_chat_url(), headers=headers, json=data, stream=self.stream)
-            self.response_raise_status(response)
-            response.encoding = "utf-8"
-            # print("---------------------------------------START---------------------------------------")
+        with requests.Session() as session:
+            session.headers.update(headers)
+            session.stream = self.stream
+            while not self.should_stop:
+                last_call_index = -1
+                self.tool_calls.clear()
+                response = session.post(self.get_chat_url(), json=data)
+                self.response_raise_status(response)
+                response.encoding = "utf-8"
+                # print("---------------------------------------START---------------------------------------")
 
-            for line in response.iter_lines():
-                if not line:
-                    continue
+                for line in response.iter_lines():
+                    if not line:
+                        continue
+                    if self.should_stop:
+                        break
+                    # print("原始数据:", line)
+                    if not (json_data := self.parse_line(line)):
+                        # print("无法解析原始数据:", line)
+                        continue
+                    choice = json_data.get("choices", [{}])[0]
+                    delta = choice.get("delta", {})
+                    finish_reason = choice.get("finish_reason", "")
+                    if finish_reason in {"stop", "tool_calls"}:
+                        continue
+                    if json_data.get("type", "") == "ping":
+                        # for claude openai compatible
+                        continue
+
+                    if not delta:
+                        logger.warning(f"delta数据缺失: {line}")
+                        continue
+                    # print("delta原始数据:", delta)
+                    # ---------------------------1.文本输出---------------------------
+                    # 原始数据 {"choices": [{"index": 0, "delta": {"role": "assistant", "content": ""}}]}
+                    if (content := delta.get("content")) or (content := delta.get("reasoning_content")):
+                        print(content, end="", flush=True)
+
+                    # ---------------------------2.工具调用---------------------------
+                    # 原始数据 {"choices": [{"index": 0, "delta": {"role": "assistant", "tool_calls": [{"index": 0, "id": "XXX", "type": "function", "function": {"name": "get_scene_info", "arguments": ""}}]}}]}
+                    if not (tool_call := delta.get("tool_calls", [{}])[0]):
+                        continue
+                    index = tool_call["index"]
+                    fn_name = tool_call.get("function", {}).get("name", "")
+                    # 工具调用的第一条数据
+                    if fn_name and index not in self.tool_calls:
+                        last_call_index = index
+                        self.tool_calls[index] = tool_call
+                        print(f"\n选择工具: {fn_name} 参数: ", end="", flush=True)
+                    # 过滤无效的tool_call(小模型生成的多余arguments)
+                    if index not in self.tool_calls:
+                        continue
+                    # 流式输出拼接arguments
+                    if arguments := tool_call.get("function", {}).get("arguments", ""):
+                        self.tool_calls[index]["function"]["arguments"] += arguments
+                        print(arguments, end="", flush=True)
+                    # 每轮只允许一个工具调用( 当存在连续调用时, 每当tryjson 成功时就调用)
+                    if self.ensure_tool_call(index):
+                        await self.call_tool(index)
+                # print("----------------------------------------END-----------------------------------------")
                 if self.should_stop:
                     break
-                # print("原始数据:", line)
-                if not (json_data := self.parse_line(line)):
-                    # print("无法解析原始数据:", line)
-                    continue
-                choice = json_data.get("choices", [{}])[0]
-                delta = choice.get("delta", {})
-                if not delta:
-                    print("无delta原始数据:", line)
-                    continue
-                # print("delta原始数据:", delta)
-                # ---------------------------1.文本输出---------------------------
-                # 原始数据 {"choices": [{"index": 0, "delta": {"role": "assistant", "content": ""}}]}
-                if (content := delta.get("content")) or (content := delta.get("reasoning_content")):
-                    response_text += content
-                    print(content, end="", flush=True)
-
-                # ---------------------------2.工具调用---------------------------
-                # 原始数据 {"choices": [{"index": 0, "delta": {"role": "assistant", "tool_calls": [{"index": 0, "id": "XXX", "type": "function", "function": {"name": "get_scene_info", "arguments": ""}}]}}]}
-                if not (rtool_call := delta.get("tool_calls", [{}])[0]):
-                    continue
-                if not (f := rtool_call.get("function")):
-                    continue
-
-                rindex = rtool_call["index"]
-
-                if fn_name := f.get("name", ""):
-                    # fn_name最先发送, 所以仅当fn_name存在时, 才添加到tool_calls
-                    last_call_index = rindex
-                    tool_calls[rindex] = {"id": "", "type": "function", "function": {"name": "", "arguments": ""}}
-                    tc = tool_calls[rindex]
-                    tc["function"]["name"] = fn_name
-
-                    if tool_id := rtool_call.get("id"):
-                        tc["id"] = tool_id
-
-                if rindex not in tool_calls:
-                    continue
-
-                tc = tool_calls[rindex]
-                if arguments := f.get("arguments", ""):
-                    tc["function"]["arguments"] += arguments.strip()
-                # 每轮只允许一个工具调用( 当存在连续调用时, 每当tryjson 成功时就调用)
-                try:
-                    parsed_arguments = json.loads(tc["function"]["arguments"])
-                    messages.append({"role": "assistant", "content": "", "tool_calls": [tc]})
-                    messages += await self.call_tool(tc["function"]["name"], parsed_arguments, tc["id"])
-                    tool_calls.pop(rindex)
-                except json.JSONDecodeError:
-                    continue
-            # print("----------------------------------------END-----------------------------------------")
-            if self.should_stop:
-                break
-            if last_call_index == -1:
-                break
-            # 保证执行最后一个工具调用
-            for tc in tool_calls.values():
-                messages.append({"role": "assistant", "content": "", "tool_calls": [tc]})
-                tc["function"]["arguments"] = tc["function"]["arguments"].strip() or "{}"
-                messages += await self.call_tool(tc["function"]["name"], tc["function"]["arguments"], tc["id"])
+                if last_call_index == -1:
+                    break
+                # 保证执行最后一个工具调用
+                for index in list(self.tool_calls):
+                    # 最后强制调用一次, 如果有报错信息会写入messages
+                    await self.call_tool(index)
         return ""
