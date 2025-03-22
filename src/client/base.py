@@ -1,5 +1,7 @@
 import json
 import bpy
+import math
+import random
 import queue
 import asyncio
 import requests
@@ -7,7 +9,6 @@ from threading import Thread
 from dataclasses import dataclass
 from typing import Union, Literal
 from contextlib import AsyncExitStack
-from pathlib import Path
 from mcp import ClientSession
 from mcp.client.sse import sse_client
 from ..timer import Timer
@@ -62,6 +63,9 @@ class MCPClientBase:
         self.model = model
         self.stream = stream
         self.session: ClientSession = None
+        self.messages = []
+        self.tool_calls: dict[str, dict] = {}
+        self.use_history = False
         self.models = []
         self.exit_stack = AsyncExitStack()
         self.should_stop = False
@@ -70,13 +74,6 @@ class MCPClientBase:
         self.push_instance(self)
         # self.response_parser = ResponseParser()
         # s = self.response_parser.parse_response("S")
-
-        try:
-            from anthropic import Anthropic
-
-            self.anthropic = Anthropic()
-        except Exception:
-            ...
         self.reset_config()
 
     @property
@@ -231,45 +228,73 @@ class MCPClientBase:
     def response_raise_status(self, response):
         pass
 
+    def parse_arguments(self, arguments: str):
+        arguments = arguments.strip()
+        # 基本的json格式校验
+        if not arguments.startswith("{") or not arguments.endswith("}"):
+            raise json.JSONDecodeError("参数格式错误", arguments, 0)
+        try:
+            try:
+                return eval(arguments, {"math": math, "random": random})
+            except Exception:
+                pass
+            return json.loads(arguments)
+        except Exception as e:
+            logger.info(f"\n错误参数: {arguments}\n")
+            raise e
+
+    def ensure_tool_call(self, index: int):
+        tool_call = self.tool_calls[index]
+        func = tool_call.get("function", {})
+        try:
+            arguments = func.get("arguments", "").strip()
+            self.parse_arguments(arguments)
+        except Exception:
+            return False
+        return True
+
+    async def call_tool(self, index: int):
+        """调用工具"""
+        tool_call = self.tool_calls[index]
+        func = tool_call.get("function", {})
+        fn_name = func.get("name")
+        arguments = func.get("arguments", "").strip() or "{}"
+        print()  # 每次调用工具时，打印一个空行，方便查看日志
+        logger.info(f"尝试工具: {fn_name} 参数: {arguments}")
+        results = await self.call_tool_ex(fn_name, arguments)
+        self.tool_calls.pop(index)
+        self.messages.append({"role": "assistant", "content": "", "tool_calls": [tool_call]})
+        for rtype, result in results:
+            final_result = f"Selected tool: {fn_name}\nResult: {result}"
+            tool_call_result = {"role": "tool", "content": final_result, "tool_call_id": tool_call["id"], "name": fn_name}
+            self.messages.append(tool_call_result)
+
+    async def call_tool_ex(self, fn_name: str, arguments: str | dict) -> tuple[str, str]:
+        try:
+            arguments = self.parse_arguments(arguments)
+        except Exception as e:
+            logger.info(f"参数解析错误:\n{arguments}\n{e}")
+            return [("error", f"Argument parsing error: {e}")]
+        res = await self.session.call_tool(fn_name, arguments)
+        results = []
+        for res_content in res.content:
+            result = ""
+            rtype = res_content.type
+            if rtype == "text":
+                result = res_content.text
+            elif rtype == "image":
+                result = res_content.data
+            elif rtype == "resource":
+                result = res_content.resource
+            if isinstance(result, str) and result.startswith("Error"):
+                rtype = "error"
+                logger.error(result)
+            results.append((rtype, result))
+        return results
+
     async def process_query(self, query: str) -> str:
         """Process a query using Claude and available tools"""
-        messages = [{"role": "user", "content": query}]
-
-        response = await self.session.list_tools()
-        available_tools = [{"name": tool.name, "description": tool.description, "input_schema": tool.inputSchema} for tool in response.tools]
-        response = self.anthropic.messages.create(model="claude-3-5-sonnet-20241022", max_tokens=1000, messages=messages, tools=available_tools)
-
-        # Process response and handle tool calls
-        final_text = []
-
-        for content in response.content:
-            if self.should_stop:
-                break
-            if content.type == "text":
-                final_text.append(content.text)
-            elif content.type == "tool_use":
-                tool_name = content.name
-                tool_args = content.input
-
-                # Execute tool call
-                result = await self.session.call_tool(tool_name, tool_args)
-                final_text.append(f"[Calling tool {tool_name} with args {tool_args}]")
-
-                # Continue conversation with tool results
-                if hasattr(content, "text") and content.text:
-                    messages.append({"role": "assistant", "content": content.text})
-                messages.append({"role": "user", "content": result.content})
-
-                # Get next response from Claude
-                response = self.anthropic.messages.create(
-                    model="claude-3-5-sonnet-20241022",
-                    max_tokens=1000,
-                    messages=messages,
-                )
-
-                final_text.append(response.content[0].text)
-
-        return "\n".join(final_text)
+        return ""
 
     async def main(self):
         try:
