@@ -6,3 +6,4 @@ test_config.json
 log.log
 *.log*
 .idea
+config_cache.json
