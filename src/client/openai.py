@@ -16,6 +16,14 @@ class MCPClientOpenAI(MCPClientBase):
             "version": "0.0.1",
         }
 
+    @classmethod
+    def default_config(cls):
+        return {
+            "base_url": "https://api.openai.com",
+            "api_key": "",
+            "model": "gpt-4o-mini",
+        }
+
     def __init__(self, base_url="https://api.openai.com", api_key="", model="", stream=True):
         super().__init__(base_url, api_key, model, stream)
 

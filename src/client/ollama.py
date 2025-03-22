@@ -14,6 +14,16 @@ class MCPClientLocalOllama(MCPClientOpenAI):
             "version": "1.0.0",
         }
 
+    @classmethod
+    def default_config(cls):
+        return {
+            "base_url": "http://localhost:11434",
+            "host": "localhost",
+            "port": 11434,
+            "api_key": "",
+            "model": "llama3.2:3b",
+        }
+
     def __init__(self, base_url="http://localhost:11434", api_key="ollama", model="", stream=True):
         super().__init__(base_url, api_key=api_key, model=model, stream=stream)
 
@@ -46,9 +56,9 @@ class MCPClientLocalOllama(MCPClientOpenAI):
         from ..preference import get_pref
 
         pref = get_pref()
-        layout.prop(pref, "api_key")
         layout.prop(pref, "host")
         layout.prop(pref, "port")
+        layout.prop(pref, "api_key")
         layout.prop(pref, "model")
 
     def reset_config(self):

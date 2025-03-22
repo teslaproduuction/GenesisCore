@@ -1,11 +1,66 @@
 # type: ignore
 import bpy
+import json
+import traceback
+from pathlib import Path
 from .i18n.translations.zh_HANS import PROP_TCTX, PANEL_TCTX, OPS_TCTX
 
 
 class AddonPreferences(bpy.types.AddonPreferences):
     bl_idname = __package__.split(".")[0]
     config = {}
+    config_cache = {}
+
+    def load_cache(self):
+        cache_file = Path(__file__).parent / "config_cache.json"
+        if not cache_file.exists():
+            return
+        try:
+            json_data = json.loads(cache_file.read_text(encoding="utf-8"))
+            self.config_cache.update(json_data)
+            # 将models中的项全部转为元组
+            for k, v in self.config_cache.items():
+                v["models"] = [tuple(m) for m in v.get("models", [])]
+            self.update_provider(None)
+        except Exception:
+            traceback.print_exc()
+
+    def save_cache(self):
+        try:
+            cache_file = Path(__file__).parent / "config_cache.json"
+            cache_file.write_text(json.dumps(self.config_cache, indent=4, ensure_ascii=False), encoding="utf-8")
+        except Exception:
+            traceback.print_exc()
+
+    def refresh_cache(self):
+        if not self.provider:
+            return
+        old_config = self.config_cache.get(self.provider)
+        new_config = self.dump_all_config()
+        if old_config == new_config:
+            return
+        self.config_cache[self.provider] = new_config
+        self.save_cache()
+
+    def dump_all_config(self):
+        client = self.get_client_by_name(self.provider)
+        models = client.get().models if client.get() else []
+        models = [(m, m, "") for m in models]
+        return {
+            "provider": self.provider,
+            "host": self.host,
+            "port": self.port,
+            "api_key": self.api_key,
+            "base_url": self.base_url,
+            "model": self.model,
+            "models": models,
+        }
+
+    def refresh_models_check(self):
+        config = self.dump_base_config()
+        if config != self.config:
+            self.config.update(config)
+            self.should_refresh_models = True
 
     def get_tools_items(self, context):
         from .server.tools import ToolsPackageBase
@@ -25,9 +80,26 @@ class AddonPreferences(bpy.types.AddonPreferences):
 
         return MCPClientBase.get_enum_items()
 
+    def update_provider(self, context):
+        # 从config_cache加载配置
+        config = self.config_cache.get(self.provider, {})
+        if not config:
+            # 从MCP Client中加载
+            client = self.get_client_by_name(self.provider)
+            config = client.default_config()
+        self.host = config.get("host", "")
+        self.port = config.get("port", 11434)
+        self.api_key = config.get("api_key", "")
+        self.base_url = config.get("base_url", "")
+        try:
+            self.model = config.get("model", "")
+        except Exception:
+            pass
+
     provider: bpy.props.EnumProperty(
         items=get_provider_items,
         name="LLM Provider",
+        update=update_provider,
         translation_context=PROP_TCTX,
     )
 
@@ -41,7 +113,7 @@ class AddonPreferences(bpy.types.AddonPreferences):
         translation_context=PROP_TCTX,
     )
 
-    def dump_config(self):
+    def dump_base_config(self):
         return {
             "provider": self.provider,
             "host": self.host,
@@ -53,7 +125,10 @@ class AddonPreferences(bpy.types.AddonPreferences):
     def get_model_items(self, context):
         client = self.get_client_by_name(self.provider)
         models = client.get().models if client.get() else []
-        return [(m, m, "") for m in models] or [("None", "None", "")]
+        models = [(m, m, "") for m in models]
+        if not models:
+            models = self.config_cache.get(self.provider, {}).get("models", [])
+        return models or [("None", "None", "")]
 
     model: bpy.props.EnumProperty(items=get_model_items, name="Model", translation_context=PROP_TCTX)
 
@@ -107,6 +182,7 @@ class RefreshModels(bpy.types.Operator):
         if not client.get():
             return {"FINISHED"}
         models = client.get().fetch_models(force=True)
+        pref.refresh_cache()
         if models:
             pref.should_refresh_models = False
         return {"FINISHED"}
@@ -116,12 +192,15 @@ def get_pref() -> AddonPreferences:
     return bpy.context.preferences.addons[AddonPreferences.bl_idname].preferences
 
 
+@bpy.app.handlers.persistent
+def init_config(scene):
+    pref = get_pref()
+    pref.load_cache()
+
+
 def config_checker():
     pref = get_pref()
-    config = pref.dump_config()
-    if config != pref.config:
-        pref.config.update(config)
-        pref.should_refresh_models = True
+    pref.refresh_models_check()
     return 1
 
 
@@ -136,9 +215,11 @@ reg, unreg = bpy.utils.register_classes_factory(clss)
 
 def register():
     reg()
+    bpy.app.handlers.load_post.append(init_config)
     bpy.app.timers.register(config_checker, first_interval=1, persistent=True)
 
 
 def unregister():
     unreg()
     bpy.app.timers.unregister(config_checker)
+    bpy.app.handlers.load_post.remove(init_config)

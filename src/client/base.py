@@ -141,6 +141,10 @@ class MCPClientBase:
         return [(c.__name__, c.info()["name"], c.info()["description"]) for c in cls.get_all_clients()]
 
     @classmethod
+    def default_config(cls):
+        return {}
+
+    @classmethod
     def get_client_by_name(cls, name: str) -> "MCPClientBase":
         if name not in cls.__clients__:
             for c in cls.get_all_clients():
