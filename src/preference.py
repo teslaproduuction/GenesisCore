@@ -27,6 +27,11 @@ class AddonPreferences(bpy.types.AddonPreferences):
 
     def save_cache(self):
         try:
+            current_config = self.dump_base_config()
+            current_config["model"] = self.model
+            old_config = self.config_cache.get(self.provider, {})
+            old_config.update(current_config)
+            self.config_cache[self.provider] = old_config
             cache_file = Path(__file__).parent / "config_cache.json"
             cache_file.write_text(json.dumps(self.config_cache, indent=4, ensure_ascii=False), encoding="utf-8")
         except Exception:
@@ -146,10 +151,12 @@ class AddonPreferences(bpy.types.AddonPreferences):
         self.draw_ex(box)
 
     def draw_ex(self, layout: bpy.types.UILayout):
-        row = layout.row()
+        row = layout.row(align=True)
         row.label(text="API Settings", text_ctxt=PANEL_TCTX)
         row.alert = self.should_refresh_models
         row.operator(RefreshModels.bl_idname, text="", icon="FILE_REFRESH")
+        row.alert = False
+        row.operator(SaveConfig.bl_idname, text="", icon="FILE_TICK")
         layout.prop(self, "provider")
         provider = self.get_client_by_name(self.provider)
         if not provider:
@@ -188,6 +195,18 @@ class RefreshModels(bpy.types.Operator):
         return {"FINISHED"}
 
 
+class SaveConfig(bpy.types.Operator):
+    bl_idname = "mcp.save_config"
+    bl_label = "Save Config"
+    bl_description = "Save Config"
+    bl_translation_context = OPS_TCTX
+
+    def execute(self, context):
+        pref = get_pref()
+        pref.save_cache()
+        return {"FINISHED"}
+
+
 def get_pref() -> AddonPreferences:
     return bpy.context.preferences.addons[AddonPreferences.bl_idname].preferences
 
@@ -206,6 +225,7 @@ def config_checker():
 
 clss = [
     RefreshModels,
+    SaveConfig,
     AddonPreferences,
 ]
 
