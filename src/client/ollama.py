@@ -25,13 +25,6 @@ class MCPClientLocalOllama(MCPClientOpenAI):
     def __init__(self, base_url="http://localhost:11434", api_key="ollama", model="", stream=True):
         super().__init__(base_url, api_key=api_key, model=model, stream=stream)
 
-    def get_chat_url(self):
-        res = f"{self.base_url}/v1/chat/completions"
-        if not res.startswith("http"):
-            res = f"http://{res}"
-        return res
-
-
     def response_raise_status(self, response: requests.Response):
         try:
             response.raise_for_status()
