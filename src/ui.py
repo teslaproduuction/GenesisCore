@@ -1,5 +1,5 @@
 import bpy
-from .operator import RunCommand
+from .operator import RunCommand, SkipCurrentCommand
 from .i18n.translations.zh_HANS import PANEL_TCTX
 from .preference import get_pref
 
@@ -23,7 +23,10 @@ class MCP_PT_Client(bpy.types.Panel):
             col = box.column()
             col.scale_y = 2
             col.enabled = bool(bpy.context.scene.mcp_props.command)
-            col.operator(RunCommand.bl_idname)
+            row = col.row(align=True)
+            row.operator(RunCommand.bl_idname)
+            row.operator(SkipCurrentCommand.bl_idname, icon="PAUSE", text="")
+
             box = layout.box()
             pref.draw_ex(box)
         except Exception as e:

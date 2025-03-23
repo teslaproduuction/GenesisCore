@@ -124,7 +124,7 @@ class MCPClientOpenAI(MCPClientBase):
         with requests.Session() as session:
             session.headers.update(headers)
             session.stream = self.stream
-            while not self.should_stop:
+            while not self.should_skip():
                 last_call_index = -1
                 self.tool_calls.clear()
                 response = session.post(self.get_chat_url(), json=data)
@@ -135,7 +135,7 @@ class MCPClientOpenAI(MCPClientBase):
                 for line in response.iter_lines():
                     if not line:
                         continue
-                    if self.should_stop:
+                    if self.should_skip():
                         break
                     # print("原始数据:", line)
                     if not (json_data := self.parse_line(line)):
@@ -181,7 +181,7 @@ class MCPClientOpenAI(MCPClientBase):
                     if self.ensure_tool_call(index):
                         await self.call_tool(index)
                 # print("----------------------------------------END-----------------------------------------")
-                if self.should_stop:
+                if self.should_skip():
                     break
                 if last_call_index == -1:
                     break

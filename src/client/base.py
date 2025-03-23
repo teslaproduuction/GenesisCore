@@ -69,6 +69,7 @@ class MCPClientBase:
         self.models = []
         self.exit_stack = AsyncExitStack()
         self.should_stop = False
+        self.skip_current_command = False
         self.command_queue = queue.Queue()
         self.is_running = False
         self.push_instance(self)
@@ -183,6 +184,9 @@ class MCPClientBase:
         layout.prop(pref, "api_key")
         layout.prop(pref, "base_url")
         layout.prop(pref, "model")
+
+    def should_skip(self):
+        return self.skip_current_command or self.should_stop
 
     def system_prompt(self):
         prompt_cn = """
@@ -316,8 +320,12 @@ class MCPClientBase:
                         await asyncio.sleep(0.2)
                         continue
                     logger.info(f"当前命令: {query}")
+                    self.skip_current_command = False
                     response = await self.process_query(query)
                     print()
+                    if self.skip_current_command:
+                        logger.info(f"跳过命令: {query}")
+                        continue
                     logger.info(f"处理完成: {query}")
                     # client.session.call_tool
                     # print(response)

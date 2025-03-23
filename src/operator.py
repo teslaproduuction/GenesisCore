@@ -61,8 +61,27 @@ class RunCommand(bpy.types.Operator):
         return {"FINISHED"}
 
 
+class SkipCurrentCommand(bpy.types.Operator):
+    bl_idname = "mcp.skip_current_command"
+    bl_label = "Skip Current Command"
+    bl_description = "Skip the current command"
+    bl_translation_context = OPS_TCTX
+
+    def execute(self, context):
+        pref = get_pref()
+        client: MCPClientBase = pref.get_client_by_name(pref.provider)
+        if not client:
+            self.report({"ERROR"}, "No client selected")
+            return {"FINISHED"}
+        instance = client.get()
+        if instance:
+            instance.skip_current_command = True
+        return {"FINISHED"}
+
+
 clss = [
     RunCommand,
+    SkipCurrentCommand,
 ]
 
 
