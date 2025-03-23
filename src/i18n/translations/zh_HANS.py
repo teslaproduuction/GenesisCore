@@ -17,6 +17,8 @@ translations = (
     ("Custom Asset Tools.", "自定义资产的相关工具"),
     ("ObjectTools", "物体工具包", PROP_TCTX),
     ("Object tools for the Blender scene.", "Blender场景中的物体工具"),
+    ("PolyhavenTools", "Polyhaven资产包", PROP_TCTX),
+    ("Polyhaven tools. Use the api to download assets.(For commercial use see https://polyhaven.com/our-api)", "Polyhaven工具。使用API下载资产。（商业用途请见https://polyhaven.com/our-api）"),
     ("MaterialTools", "材质工具包", PROP_TCTX),
     ("Material tools for Blender.", "Blender的材质工具"),
     ("ModifierTools", "修改器工具包", PROP_TCTX),
