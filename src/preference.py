@@ -18,9 +18,6 @@ class AddonPreferences(bpy.types.AddonPreferences):
         try:
             json_data = json.loads(cache_file.read_text(encoding="utf-8"))
             self.config_cache.update(json_data)
-            # 将models中的项全部转为元组
-            for k, v in self.config_cache.items():
-                v["models"] = [tuple(m) for m in v.get("models", [])]
             self.update_provider(None)
         except Exception:
             traceback.print_exc()
@@ -50,7 +47,6 @@ class AddonPreferences(bpy.types.AddonPreferences):
     def dump_all_config(self):
         client = self.get_client_by_name(self.provider)
         models = client.get().models if client.get() else []
-        models = [(m, m, "") for m in models]
         return {
             "provider": self.provider,
             "api_key": self.api_key,
@@ -128,6 +124,22 @@ class AddonPreferences(bpy.types.AddonPreferences):
         return models or [("None", "None", "")]
 
     model: bpy.props.EnumProperty(items=get_model_items, name="Model", translation_context=PROP_TCTX)
+    
+    def search_model(self, context, text):
+        client = self.get_client_by_name(self.provider)
+        models = client.get().models if client.get() else []
+        if not models:
+            models = self.config_cache.get(self.provider, {}).get("models", [])
+        t = text.lower()
+        return [m for m in models if t in m.lower()]
+    
+    model: bpy.props.StringProperty(
+        default="",
+        name="Model",
+        search=search_model,
+        search_options={"SORT"},
+        translation_context=PROP_TCTX,
+    )
 
     should_refresh_models: bpy.props.BoolProperty(default=True, name="Should Refresh Models", translation_context=PROP_TCTX)
 
