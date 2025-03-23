@@ -53,8 +53,6 @@ class AddonPreferences(bpy.types.AddonPreferences):
         models = [(m, m, "") for m in models]
         return {
             "provider": self.provider,
-            "host": self.host,
-            "port": self.port,
             "api_key": self.api_key,
             "base_url": self.base_url,
             "model": self.model,
@@ -92,8 +90,6 @@ class AddonPreferences(bpy.types.AddonPreferences):
             # 从MCP Client中加载
             client = self.get_client_by_name(self.provider)
             config = client.default_config()
-        self.host = config.get("host", "")
-        self.port = config.get("port", 11434)
         self.api_key = config.get("api_key", "")
         self.base_url = config.get("base_url", "")
         try:
@@ -108,8 +104,6 @@ class AddonPreferences(bpy.types.AddonPreferences):
         translation_context=PROP_TCTX,
     )
 
-    host: bpy.props.StringProperty(default="localhost", name="Host", translation_context=PROP_TCTX)
-    port: bpy.props.IntProperty(default=11434, name="Port", translation_context=PROP_TCTX)
     api_key: bpy.props.StringProperty(default="", name="API Key", translation_context=PROP_TCTX)
 
     base_url: bpy.props.StringProperty(
@@ -121,8 +115,6 @@ class AddonPreferences(bpy.types.AddonPreferences):
     def dump_base_config(self):
         return {
             "provider": self.provider,
-            "host": self.host,
-            "port": self.port,
             "api_key": self.api_key,
             "base_url": self.base_url,
         }
