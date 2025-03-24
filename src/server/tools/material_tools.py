@@ -44,7 +44,7 @@ class MaterialTools(ToolsPackageBase):
                     output = mat.node_tree.nodes.new("ShaderNodeOutputMaterial")
                     output.name = "Material Output"
                 mat.node_tree.links.new(principled.outputs[0], output.inputs[0])
-
+            color = color or (1, 1, 1, 1)
             color = color if len(color) == 4 else (*color, 1.0)
             # Set color if provided
             if color and len(color) >= 3:
