@@ -160,9 +160,9 @@ class AddonPreferences(bpy.types.AddonPreferences):
         row = layout.row(align=True)
         row.label(text="API Settings", text_ctxt=PANEL_TCTX)
         row.alert = self.should_refresh_models
-        row.operator(RefreshModels.bl_idname, text="", icon="FILE_REFRESH")
+        row.operator(RefreshModels.bl_idname, text="", icon="FILE_REFRESH", text_ctxt=OPS_TCTX)
         row.alert = False
-        row.operator(SaveConfig.bl_idname, text="", icon="FILE_TICK")
+        row.operator(SaveConfig.bl_idname, text="", icon="FILE_TICK", text_ctxt=OPS_TCTX)
         layout.prop(self, "provider")
         provider = self.get_client_by_name(self.provider)
         if not provider:
