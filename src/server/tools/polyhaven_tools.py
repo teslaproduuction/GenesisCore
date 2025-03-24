@@ -79,13 +79,64 @@ class PolyhavenHelper:
                 cls.files_cache[asset_id] = config
             except Exception:
                 return {}
-
+        expected_resolution_int = int(expected_resolution[:-1])
         last_suport_resolution = "1k"
-        for resolution in sorted(cls.files_cache[asset_id].keys()):
-            if resolution <= expected_resolution:
+        for resolution in sorted(cls.files_cache[asset_id], key=lambda x: int(x[:-1])):
+            resolution_int = int(resolution[:-1])
+            if resolution_int <= expected_resolution_int:
                 last_suport_resolution = resolution
         files = cls.files_cache[asset_id][last_suport_resolution].get("blend", {})
         return files
+
+    @classmethod
+    def fetch_hdri_file(cls, asset_id: str, expected_resolution: str = "1k") -> dict:
+        if asset_id not in cls.files_cache:
+            try:
+                response = requests.get(f"{cls.url}/files/{asset_id}")
+                json_data = response.json()
+                config = json_data.get("hdri", {})
+                cls.files_cache[asset_id] = config
+            except Exception:
+                return {}
+        expected_resolution_int = int(expected_resolution[:-1])
+        last_suport_resolution = "1k"
+        for resolution in sorted(cls.files_cache[asset_id], key=lambda x: int(x[:-1])):
+            resolution_int = int(resolution[:-1])
+            if resolution_int <= expected_resolution_int:
+                last_suport_resolution = resolution
+        file = cls.files_cache[asset_id][last_suport_resolution]
+        return file
+
+    @classmethod
+    def download_hdri_file(cls, asset_id: str, expected_resolution: str = "1k") -> str:
+        files = cls.fetch_hdri_file(asset_id, expected_resolution)
+        if not files:
+            return {}
+        {
+            "hdr": {
+                "size": 102973096,
+                "url": "https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/8k/abandoned_bakery_8k.hdr",
+                "md5": "87ee21eb003d29103f5fe1720f64ec6d",
+            },
+            "exr": {
+                "size": 94040932,
+                "url": "https://dl.polyhaven.org/file/ph-assets/HDRIs/exr/8k/abandoned_bakery_8k.exr",
+                "md5": "e678e3e3924ade087f1ea7f795e26bf2",
+            },
+        }
+        file = files.get("hdr")
+        if "exr" in files:
+            file = files.get("exr")
+        hdri_cache_dir = Path(gettempdir()) / f"polyhaven_hdris/{asset_id}/{expected_resolution}"
+        hdri_cache_dir.mkdir(parents=True, exist_ok=True)
+        hdri_cache_path = hdri_cache_dir.joinpath(f"{asset_id}.hdr").as_posix()
+
+        url = file["url"]
+        size = int(file["size"])
+        md5_hash = file["md5"]
+        hdri_file = cls.download_file(url, asset_id, size, hdri_cache_path, md5_hash)
+
+        return {"hdri": hdri_file}
 
     @classmethod
     def download_file(cls, url: str, name: str, size: int, file_path: str, md5_hash: str = None) -> str:
@@ -119,7 +170,7 @@ class PolyhavenHelper:
         files = cls.fetch_model_files(asset_id, expected_resolution)
         if not files:
             return {}
-        blend_cache_dir = Path(gettempdir()) / f"polyhaven_models/{asset_id}"
+        blend_cache_dir = Path(gettempdir()) / f"polyhaven_models/{asset_id}/{expected_resolution}"
         blend_cache_dir.mkdir(parents=True, exist_ok=True)
         blend_cache_path = blend_cache_dir.joinpath(f"{asset_id}.blend").as_posix()
         url = files["url"]
@@ -156,10 +207,10 @@ class PolyhavenTools(ToolsPackageBase):
     #     List all assets of a given type.
 
     #     Args:
-    #     - asset_type: The type of asset to list. Can be "models", "texture", or "hdri".
+    #     - asset_type: The type of asset to list. Can be "models", "texture", or "hdris".
     #     """
-    #     if asset_type not in ["models", "texture", "hdri"]:
-    #         raise ValueError("Invalid asset type. Must be 'model', 'texture', or 'hdri'.")
+    #     if asset_type not in ["models", "texture", "hdris"]:
+    #         raise ValueError("Invalid asset type. Must be 'model', 'texture', or 'hdris'.")
     #     assets_list = PolyhavenHelper.fetch_assets_by_type(asset_type)
     #     for asset in assets_list.values():
     #         asset.pop("date_published", "")
@@ -293,6 +344,8 @@ class PolyhavenTools(ToolsPackageBase):
             asset["supported_resolutions"].append("4k")
         if max_resolution >= 8192:
             asset["supported_resolutions"].append("8k")
+        if max_resolution >= 16384:
+            asset["supported_resolutions"].append("16k")
         {
             "name": "Arm Chair 01",
             "categories": ["furniture", "seating"],
@@ -317,7 +370,7 @@ class PolyhavenTools(ToolsPackageBase):
 
         Args:
         - asset_id: The asset id of the model you want to use.
-        - expected_resolution: The expected resolution of the model. Can be "1k", "2k", "4k", or "8k".
+        - expected_resolution: The expected resolution of the model. Can be "1k", "2k", "4k", "8k", or "16k".
         """
         files = PolyhavenHelper.download_model_files(asset_id, expected_resolution)
         {
@@ -348,6 +401,153 @@ class PolyhavenTools(ToolsPackageBase):
             "resolution": expected_resolution,
             "loaded_objects": loaded_object_names,
         }
+
+    def polyhaven_search_hdris(names: list[str] = None, tags: list[str] = None, categories: list[str] = None) -> list:
+        """
+        Search Polyhaven Online Asset Library for hdris. If you want to use polyhaven asset, you should search first, then try to fetch it, unless user specifies the name.
+
+        Args:
+        - names: The names of the hdris to search for.
+        - tags: The tags of the hdris to search for.
+        - categories: The categories of the hdris to search for.
+
+        Returns:
+        - A dictionary containing the results of the search.
+        """
+
+        assets_list = PolyhavenHelper.fetch_assets_by_type("hdris")
+        names = names or []
+        tags = tags or []
+        categories = categories or []
+        results = {
+            "names_query": {
+                "query": names,
+                "results": [],
+            },
+            "tags_query": {
+                "query": tags,
+                "results": [],
+            },
+            "categories_query": {
+                "query": categories,
+                "results": [],
+            },
+        }
+
+        for search_name in names:
+            query = search_name.lower()
+            for name, asset in assets_list.items():
+                if query in asset["name"].lower():
+                    results["names_query"]["results"].append(name)
+        for search_tag in tags:
+            query = search_tag.lower()
+            for name, asset in assets_list.items():
+                if query in asset["tags"]:
+                    results["tags_query"]["results"].append(name)
+        for search_category in categories:
+            query = search_category.lower()
+            for name, asset in assets_list.items():
+                if query in asset["categories"]:
+                    results["categories_query"]["results"].append(name)
+        if not names:
+            results.pop("names_query")
+        if not tags:
+            results.pop("tags_query")
+        if not categories:
+            results.pop("categories_query")
+        return results
+
+    def polyhaven_fetch_hdri_info(asset_id: str) -> dict:
+        """
+        Before you use hdri asset, use this function to get hdri info then determint how or whether to use it.
+
+        Args:
+        - asset_id: The id of the asset info to fetch.
+        """
+        assets_list = PolyhavenHelper.fetch_assets_by_type("hdris")
+        asset = assets_list.get(asset_id)
+        if not asset:
+            raise ValueError(f"Asset with id {asset_id} not found")
+
+        max_resolution = asset.pop("max_resolution")
+        asset = {
+            "name": asset.get("name"),
+            "tags": asset.get("tags", []),
+            "categories": asset.get("categories", []),
+            "supported_resolutions": [],
+        }
+        if isinstance(max_resolution, list):
+            max_resolution = max(max_resolution)  # 这里和模型不一样(取最大值)?
+        if max_resolution >= 1024:
+            asset["supported_resolutions"].append("1k")
+        if max_resolution >= 2048:
+            asset["supported_resolutions"].append("2k")
+        if max_resolution >= 4096:
+            asset["supported_resolutions"].append("4k")
+        if max_resolution >= 8192:
+            asset["supported_resolutions"].append("8k")
+        if max_resolution >= 16384:
+            asset["supported_resolutions"].append("16k")
+        if max_resolution >= 32768:
+            asset["supported_resolutions"].append("32k")
+        {
+            "name": "Abandoned Bakery",
+            "tags": ["abandoned", "empty", "industrial", "windows", "bare", "rubble", "brick", "concrete", "backplates"],
+            "categories": ["natural light", "artificial light", "urban", "indoor", "high contrast"],
+            "max_resolution": [16384, 8192],
+            # "evs_cap": 16,
+            # "type": 0,
+            # "whitebalance": 4950,
+            # "backplates": True,
+            # "date_taken": 1662805680,
+            # "coords": [50.786873, 34.774073],
+            # "info": None,
+            # "authors": {"Sergej Majboroda": "All"},
+            # "date_published": 1663804800,
+            # "files_hash": "d81af70dd51ebb704af086506e0a9b92bb5d7b84",
+            # "download_count": 15640,
+            # "thumbnail_url": "https://cdn.polyhaven.com/asset_img/thumbs/abandoned_bakery.png?width=256&height=256",
+        }
+        return asset
+
+    def polyhaven_use_hdri(asset_id: str, expected_resolution: str) -> dict:
+        """
+        If you choose one hdri from the search results, you can use this tool to load it into scene.
+        If user not specify the resolution or not hint by HQ or LQ, you should use 1k or 2k by default.
+
+        Args:
+        - asset_id: The asset id of the hdri you want to use.
+        - expected_resolution: The expected resolution of the hdri. Can be "1k", "2k", "4k", "8k", or "16k".
+        """
+        if expected_resolution not in ["1k", "2k", "4k", "8k", "16k", "32k"]:
+            raise ValueError(f"Invalid resolution {expected_resolution}. Expected one of ['1k', '2k', '4k', '8k', '16k', '32k']")
+        file = PolyhavenHelper.download_hdri_file(asset_id, expected_resolution)
+        if not file:
+            raise ValueError(f"File for asset {asset_id} and resolution {expected_resolution} not found")
+        hdri_file = file["hdri"]
+        if not Path(hdri_file).exists():
+            raise ValueError(f"HDRI file {hdri_file} not found")
+        # 加载hdri为环境贴图
+        import bpy
+
+        world = bpy.data.worlds.new(name=asset_id)
+        world.use_nodes = True
+        from ..utils import NodeTreeUtil
+
+        output = NodeTreeUtil.find_node_by_type(world.node_tree, "OUTPUT_WORLD")
+        if not output:
+            output = world.node_tree.nodes.new("ShaderNodeOutputWorld")
+        background = NodeTreeUtil.find_node_by_type(world.node_tree, "BACKGROUND")
+        if not background:
+            background = world.node_tree.nodes.new("ShaderNodeBackground")
+            world.node_tree.links.new(background.outputs["Background"], output.inputs["Surface"])
+        hdri = NodeTreeUtil.find_node_by_type(world.node_tree, "TEX_ENVIRONMENT")
+        if not hdri:
+            hdri = world.node_tree.nodes.new("ShaderNodeTexEnvironment")
+            world.node_tree.links.new(hdri.outputs["Color"], background.inputs["Color"])
+        hdri.image = bpy.data.images.load(filepath=hdri_file)
+        bpy.context.scene.world = world
+        return file
 
     # TODO
     # def polyhaven_get_all_tags(asset_type: str) -> list:
