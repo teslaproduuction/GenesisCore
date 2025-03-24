@@ -65,6 +65,7 @@ class MCPClientBase:
         self.session: ClientSession = None
         self.messages = []
         self.tool_calls: dict[str, dict] = {}
+        self.should_clear_messages = False
         self.use_history = False
         self.models = []
         self.exit_stack = AsyncExitStack()
@@ -86,6 +87,9 @@ class MCPClientBase:
         self._base_url = value[:-1] if value.endswith("/") else value
 
     def update(self):
+        if self.should_clear_messages:
+            self.messages.clear()
+            self.should_clear_messages = False
         Timer.put(self.reset_config)
 
     def reset_config(self):
@@ -95,6 +99,7 @@ class MCPClientBase:
         self.base_url = pref.base_url
         self.api_key = pref.api_key
         self.model = pref.model
+        self.use_history = pref.use_history_message
 
     def get_chat_url(self):
         return ""

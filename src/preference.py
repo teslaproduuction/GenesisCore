@@ -61,6 +61,8 @@ class AddonPreferences(bpy.types.AddonPreferences):
             self.config.update(config)
             self.should_refresh_models = True
 
+    use_history_message: bpy.props.BoolProperty(default=False, name="Use History Message", translation_context=PROP_TCTX)
+
     def get_tools_items(self, context):
         from .server.tools import ToolsPackageBase
 

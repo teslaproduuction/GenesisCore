@@ -1,5 +1,5 @@
 import bpy
-from .operator import RunCommand, SkipCurrentCommand
+from .operator import RunCommand, SkipCurrentCommand, MarkCleanMessage
 from .i18n.translations.zh_HANS import PANEL_TCTX
 from .preference import get_pref
 
@@ -22,10 +22,13 @@ class MCP_PT_Client(bpy.types.Panel):
             box.prop(mcp_props, "command")
             col = box.column()
             col.scale_y = 2
+            col.scale_x = 1.5
             col.enabled = bool(bpy.context.scene.mcp_props.command)
             row = col.row(align=True)
             row.operator(RunCommand.bl_idname)
             row.operator(SkipCurrentCommand.bl_idname, icon="PAUSE", text="")
+            row.prop(pref, "use_history_message", text="", icon="WORDWRAP_ON")
+            row.operator(MarkCleanMessage.bl_idname, icon="TRASH", text="")
 
             box = layout.box()
             pref.draw_ex(box)

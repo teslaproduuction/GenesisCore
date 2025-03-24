@@ -79,9 +79,27 @@ class SkipCurrentCommand(bpy.types.Operator):
         return {"FINISHED"}
 
 
+class MarkCleanMessage(bpy.types.Operator):
+    bl_idname = "mcp.mark_clean_message"
+    bl_label = "Mark Clean Message"
+    bl_description = "Mark the current message as clean"
+    bl_translation_context = OPS_TCTX
+
+    def execute(self, context):
+        pref = get_pref()
+        client: MCPClientBase = pref.get_client_by_name(pref.provider)
+        if not client:
+            return {"FINISHED"}
+        instance = client.get()
+        if instance:
+            instance.should_clear_messages = True
+        return {"FINISHED"}
+
+
 clss = [
     RunCommand,
     SkipCurrentCommand,
+    MarkCleanMessage,
 ]
 
 
