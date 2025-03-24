@@ -149,7 +149,9 @@ class MCPClientOpenAI(MCPClientBase):
                     if json_data.get("type", "") == "ping":
                         # for claude openai compatible
                         continue
-
+                    if error := self.parse_error(json_data):
+                        logger.error(error)
+                        break
                     if not delta:
                         logger.warning(f"delta数据缺失: {line}")
                         continue

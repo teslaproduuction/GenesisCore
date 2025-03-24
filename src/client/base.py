@@ -233,6 +233,9 @@ class MCPClientBase:
             print("Json解析错误", line)
         return {}
 
+    def parse_error(self, error: dict):
+        return error.get("error", {}).get("message", "")
+
     def response_raise_status(self, response):
         pass
 
