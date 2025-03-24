@@ -72,7 +72,7 @@ class AddonPreferences(bpy.types.AddonPreferences):
         items=get_tools_items,
         name="ToolPackage",
         options={"ENUM_FLAG"},
-        default=0b10111,
+        default=0b11110,
         translation_context=PROP_TCTX,
     )
 
