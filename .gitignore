@@ -7,7 +7,7 @@ log.log
 *.log*
 .idea
 config_cache.json
-assets/models/*
+assets/models
 !assets/models/README.md
-assets/texture/*
+assets/texture
 !assets/texture/README.md
