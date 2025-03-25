@@ -5,11 +5,11 @@ from .preference import get_pref
 
 
 class MCP_PT_Client(bpy.types.Panel):
-    bl_label = "Genesis Engine Frontend"
+    bl_label = "Genesis Core"
     bl_idname = "MCP_PT_Client"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = "Genesis Engine"
+    bl_category = "Genesis Core"
     bl_translation_context = PANEL_TCTX
 
     def draw(self, context):
