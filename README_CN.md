@@ -5,7 +5,7 @@
 基于大语言模型（比如Deepseek，Claude）驱动Blender自动化制作的插件.
 使用MCP协议标准化接口, 支持多种大模型提供商, 如DeepSeek, OpenAI, Anthropic, OpenRouter, 硅基流动等.
 
-## 手册
+## 手册 / Manuals
 
 * [中文](./README_CN.md)
 * [English](./README.md)

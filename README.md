@@ -5,7 +5,7 @@
 A Blender automation addon driven by large language models (e.g. Deepseek, Claude).\
 Using MCP protocol standardized interface, supports multiple LLM providers including DeepSeek, OpenAI, Anthropic, OpenRouter, SilicorFlow, etc.
 
-## Manuals
+## Manuals / 手册
 
 * [中文](./README_CN.md)
 * [English](./README.md)
