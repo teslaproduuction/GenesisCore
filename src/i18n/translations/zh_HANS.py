@@ -25,7 +25,7 @@ translations = (
     ("Modifier tools for blender.", "Blender的修改器工具"),
     ("Use History Message", "启用历史消息(否则, 每次执行命令都会清空历史消息). 注意: 启用后Token消耗会显著增加", PROP_TCTX),
     ("API Settings", "API设置", PANEL_TCTX),
-    ("Genesis Core", "创世核心", PANEL_TCTX),
+    ("Genesis Core", "创世核心Alpha", PANEL_TCTX),
     ("Genesis Core", "创世核心"),
     ("Run", "执行", OPS_TCTX),
     ("Run the command", "执行命令"),
