@@ -9,6 +9,7 @@ reg_modules = [
     "operator",
     "props",
     "ui",
+    "utils",
 ]
 
 reg, unreg = bpy.utils.register_submodule_factory(__package__, reg_modules)

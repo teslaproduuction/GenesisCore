@@ -11,6 +11,7 @@ from .server.tools import ToolsPackageBase
 from .i18n.translations.zh_HANS import OPS_TCTX
 from .logger import logger
 from .preference import get_pref
+from .utils import BTextWriter
 
 
 test_config_path = Path(__file__).parent.parent / "test_config.json"
@@ -24,6 +25,15 @@ class RunCommand(bpy.types.Operator):
     bl_label = "Run"
     bl_description = "Run the command"
     bl_translation_context = OPS_TCTX
+
+    @classmethod
+    def poll(cls, context):
+        pref = get_pref()
+        client = pref.get_client_by_name(pref.provider)
+        processing = False
+        if client and (c := client.get()):
+            processing = c.command_processing
+        return not processing
 
     def execute(self, context):
         pref = get_pref()
@@ -96,10 +106,30 @@ class MarkCleanMessage(bpy.types.Operator):
         return {"FINISHED"}
 
 
+class OpenLogWindow(bpy.types.Operator):
+    bl_idname = "mcp.open_log_window"
+    bl_label = "Open Log Window"
+    bl_description = "Open a big text editor window to show the log"
+    bl_translation_context = OPS_TCTX
+
+    def execute(self, context):
+        bpy.ops.screen.area_dupli("INVOKE_DEFAULT")
+        area = bpy.context.window_manager.windows[-1].screen.areas[0]
+        area.ui_type = "TEXT_EDITOR"
+        tw = BTextWriter.get()
+        for i in area.spaces:
+            if i.type != "TEXT_EDITOR":
+                continue
+            i.text = tw.text
+            i.show_word_wrap = True
+        return {"FINISHED"}
+
+
 clss = [
     RunCommand,
     SkipCurrentCommand,
     MarkCleanMessage,
+    OpenLogWindow,
 ]
 
 

@@ -1,6 +1,7 @@
 import logging
 from logging import handlers
 from pathlib import Path
+from .utils import BTextHandler
 DEBUG = True
 LOGFILE = Path(__file__).parent.joinpath("logs", "runtime.log")
 NAME = "创世核心"
@@ -104,6 +105,7 @@ def getLogger(name="CLOG", level=logging.INFO, fmt='[%(name)s-%(levelname)s]: %(
     dfh = handlers.TimedRotatingFileHandler(filename=LOGFILE, when='D', backupCount=2)
     dfh.setLevel(logging.DEBUG)
     dfh.setFormatter(fmter)
+    bth = BTextHandler()
     # 命令行打印
     filter = KcFilter()
     fmter = logging.Formatter(fmt, fmt_date)
@@ -118,6 +120,7 @@ def getLogger(name="CLOG", level=logging.INFO, fmt='[%(name)s-%(levelname)s]: %(
     if not l.hasHandlers():
         # 注意添加顺序, ch有filter, 如果fh后添加 则会默认带上ch的filter
         l.addHandler(dfh)
+        l.addHandler(bth)
         l.addHandler(ch)
     return l
 

@@ -27,6 +27,7 @@ translations = (
     ("API Settings", "API设置", PANEL_TCTX),
     ("Genesis Core", "创世核心Alpha", PANEL_TCTX),
     ("Genesis Core", "创世核心"),
+    ("Processing...", "处理中..."),
     ("Run", "执行", OPS_TCTX),
     ("Run the command", "执行命令"),
     ("Skip Current Command", "跳过当前命令", OPS_TCTX),
@@ -35,4 +36,6 @@ translations = (
     ("Mark the current message as clean", "将当前消息标记为清理, 将在下轮任务前自动清理"),
     ("Save Config", "保存配置", OPS_TCTX),
     ("Refresh Models", "刷新模型列表", OPS_TCTX),
+    ("Open Log Window", "打开日志窗口", OPS_TCTX),
+    ("Open a big text editor window to show the log", "打开文本编辑器窗口来显示日志"),
 )

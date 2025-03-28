@@ -117,9 +117,9 @@ class MCPClientOpenAI(MCPClientBase):
             "stream": self.stream,
         }
         if not self.use_history:
-            self.messages.clear()
+            self.clear_messages()
         # messages.append({"role": "system", "content": self.system_prompt()})
-        self.messages.append({"role": "user", "content": query})
+        self.push_message({"role": "user", "content": query})
         data["tools"] = await self.prepare_tools()
         with requests.Session() as session:
             session.headers.update(headers)
@@ -159,6 +159,7 @@ class MCPClientOpenAI(MCPClientBase):
                     # ---------------------------1.文本输出---------------------------
                     # 原始数据 {"choices": [{"index": 0, "delta": {"role": "assistant", "content": ""}}]}
                     if (content := delta.get("content")) or (content := delta.get("reasoning_content")):
+                        self.push_stream_message({"role": "streaming", "content": content})
                         print(content, end="", flush=True)
 
                     # ---------------------------2.工具调用---------------------------

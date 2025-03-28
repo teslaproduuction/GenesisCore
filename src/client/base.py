@@ -6,6 +6,7 @@ import queue
 import asyncio
 import requests
 from threading import Thread
+from copy import deepcopy
 from dataclasses import dataclass
 from typing import Union, Literal
 from contextlib import AsyncExitStack
@@ -13,6 +14,7 @@ from mcp import ClientSession
 from mcp.client.sse import sse_client
 from ..timer import Timer
 from ..logger import getLogger
+from ..utils import BTextWriter
 
 logger = getLogger("  BlenderClient")
 
@@ -66,6 +68,7 @@ class MCPClientBase:
         self.messages = []
         self.tool_calls: dict[str, dict] = {}
         self.should_clear_messages = False
+        self.command_processing = False
         self.use_history = False
         self.models = []
         self.exit_stack = AsyncExitStack()
@@ -77,6 +80,7 @@ class MCPClientBase:
         # self.response_parser = ResponseParser()
         # s = self.response_parser.parse_response("S")
         self.reset_config()
+        self.clear_messages()
 
     @property
     def base_url(self):
@@ -86,9 +90,20 @@ class MCPClientBase:
     def base_url(self, value):
         self._base_url = value[:-1] if value.endswith("/") else value
 
+    def push_stream_message(self, message):
+        BTextWriter.get().push(deepcopy(message))
+
+    def push_message(self, message):
+        BTextWriter.get().push(deepcopy(message))
+        self.messages.append(message)
+
+    def clear_messages(self):
+        self.messages.clear()
+        BTextWriter.get().clear()
+
     def update(self):
         if self.should_clear_messages:
-            self.messages.clear()
+            self.clear_messages()
             self.should_clear_messages = False
         Timer.put(self.reset_config)
 
@@ -279,11 +294,11 @@ class MCPClientBase:
         logger.info(f"尝试工具: {fn_name} 参数: {arguments}")
         results = await self.call_tool_ex(fn_name, arguments)
         self.tool_calls.pop(index)
-        self.messages.append({"role": "assistant", "content": "", "tool_calls": [tool_call]})
+        self.push_message({"role": "assistant", "content": "", "tool_calls": [tool_call]})
         for rtype, result in results:
             final_result = f"Selected tool: {fn_name}\nResult: {result}"
             tool_call_result = {"role": "tool", "content": final_result, "tool_call_id": tool_call["id"], "name": fn_name}
-            self.messages.append(tool_call_result)
+            self.push_message(tool_call_result)
 
     async def call_tool_ex(self, fn_name: str, arguments: str | dict) -> tuple[str, str]:
         try:
@@ -319,6 +334,7 @@ class MCPClientBase:
             logger.info("创世核心已连接!")
             while True:
                 try:
+                    self.command_processing = False
                     self.update()
                     if self.should_stop:
                         break
@@ -329,6 +345,7 @@ class MCPClientBase:
                         continue
                     logger.info(f"当前命令: {query}")
                     self.skip_current_command = False
+                    self.command_processing = True
                     response = await self.process_query(query)
                     print()
                     if self.skip_current_command:
@@ -351,4 +368,5 @@ class MCPClientBase:
 
     async def cleanup(self):
         """清理资源"""
+        self.command_processing = False
         await self.exit_stack.aclose()
