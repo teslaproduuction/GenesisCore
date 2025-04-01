@@ -10,7 +10,10 @@ class BTextWriter:
     def get(cls):
         if cls._instance is None:
             cls._instance = cls()
-        cls._instance.ensure_text()
+        try:
+            cls._instance.ensure_text()
+        except AttributeError:
+            pass
         return cls._instance
 
     def __init__(self):
