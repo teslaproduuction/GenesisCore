@@ -1,8 +1,10 @@
 import json
 import bpy
+import base64
 import requests
 import re
 from copy import deepcopy
+from pathlib import Path
 
 from .base import MCPClientBase, logger
 
@@ -119,7 +121,19 @@ class MCPClientOpenAI(MCPClientBase):
         if not self.use_history:
             self.clear_messages()
         # messages.append({"role": "system", "content": self.system_prompt()})
-        self.push_message({"role": "user", "content": query})
+        user_content = [{"type": "text", "text": query}]
+        while not self.image_queue.empty():
+            image_path = Path(self.image_queue.get())
+            base64_image = base64.b64encode(image_path.read_bytes()).decode()
+            image_content = {
+                "type": "image_url",
+                "image_url": {
+                    "url": f"data:image/jpeg;base64,{base64_image}",
+                },
+            }
+            user_content.append(image_content)
+
+        self.push_message({"role": "user", "content": user_content})
         data["tools"] = await self.prepare_tools()
         with requests.Session() as session:
             session.headers.update(headers)

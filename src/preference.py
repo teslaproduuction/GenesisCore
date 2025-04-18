@@ -4,9 +4,11 @@ import json
 import traceback
 from pathlib import Path
 from .i18n.translations.zh_HANS import PROP_TCTX, PANEL_TCTX, OPS_TCTX
+from .server.tools import ToolsPackageBase
 
 
 class AddonPreferences(bpy.types.AddonPreferences):
+    __annotations__ = ToolsPackageBase.get_tool_pref_props()
     bl_idname = __package__.split(".")[0]
     config = {}
     config_cache = {}
@@ -126,7 +128,7 @@ class AddonPreferences(bpy.types.AddonPreferences):
         return models or [("None", "None", "")]
 
     model: bpy.props.EnumProperty(items=get_model_items, name="Model", translation_context=PROP_TCTX)
-    
+
     def search_model(self, context, text):
         client = self.get_client_by_name(self.provider)
         models = client.get().models if client.get() else []
@@ -134,7 +136,7 @@ class AddonPreferences(bpy.types.AddonPreferences):
             models = self.config_cache.get(self.provider, {}).get("models", [])
         t = text.lower()
         return [m for m in models if t in m.lower()]
-    
+
     model: bpy.props.StringProperty(
         default="",
         name="Model",
@@ -155,6 +157,7 @@ class AddonPreferences(bpy.types.AddonPreferences):
         layout.column().prop(self, "tools", expand=True)
         box = layout.box()
         self.draw_ex(box)
+        self.draw_tools_props(box)
 
     def draw_ex(self, layout: bpy.types.UILayout):
         row = layout.row(align=True)
@@ -168,6 +171,10 @@ class AddonPreferences(bpy.types.AddonPreferences):
         if not provider:
             return
         provider.draw(layout)
+
+    def draw_tools_props(self, layout: bpy.types.UILayout):
+        for t in ToolsPackageBase.get_all_tool_packages():
+            t.draw_pref_props(self, layout)
 
 
 class RefreshModels(bpy.types.Operator):

@@ -75,6 +75,7 @@ class MCPClientBase:
         self.should_stop = False
         self.skip_current_command = False
         self.command_queue = queue.Queue()
+        self.image_queue = queue.Queue()
         self.is_running = False
         self.push_instance(self)
         # self.response_parser = ResponseParser()

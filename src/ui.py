@@ -2,6 +2,7 @@ import bpy
 from .operator import RunCommand, SkipCurrentCommand, MarkCleanMessage, OpenLogWindow
 from .i18n.translations.zh_HANS import PANEL_TCTX, OPS_TCTX, PROP_TCTX
 from .preference import get_pref
+from .icon import Icon
 
 
 class MCP_PT_Client(bpy.types.Panel):
@@ -31,6 +32,7 @@ class MCP_PT_Client(bpy.types.Panel):
             row = box.row(align=True)
             row.prop(mcp_props, "command")
             row.operator(OpenLogWindow.bl_idname, text="", icon="LINENUMBERS_ON", text_ctxt=OPS_TCTX)
+            self.show_image_box(box)
             col = box.column()
             # 如果正在执行命令，则禁用命令输入框
             client = pref.get_client_by_name(pref.provider)
@@ -61,6 +63,23 @@ class MCP_PT_Client(bpy.types.Panel):
             pref.draw_ex(box)
         except Exception as e:
             print(e)
+
+    def show_image_box(self, layout: bpy.types.UILayout):
+        mcp_props = bpy.context.scene.mcp_props
+        row = layout.row(align=True)
+        row.template_ID(mcp_props, "image", new="image.new", open="image.open")
+        row.prop(mcp_props, "use_viewport_image", text="", icon="RESTRICT_VIEW_OFF", text_ctxt=PROP_TCTX)
+        if not mcp_props.image:
+            return
+        box = layout.box()
+        prev: bpy.types.Image = mcp_props.image
+        # 显示高清大图
+        if not prev:
+            return
+        if prev.name not in Icon:
+            Icon.reg_icon_by_pixel(prev, prev.name)
+        icon_id = Icon[prev.name]
+        box.template_icon(icon_value=icon_id, scale=12)
 
 
 clss = [

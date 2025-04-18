@@ -68,6 +68,13 @@ class RunCommand(bpy.types.Operator):
         if not command:
             return {"FINISHED"}
         client.get().command_queue.put(command)
+        if bpy.context.scene.mcp_props.image:
+            from tempfile import gettempdir
+            # 保存图片 -> 图片路径 -> client.get().image_queue.put(图片路径)
+            image: bpy.types.Image = bpy.context.scene.mcp_props.image
+            image_path = Path(gettempdir(), f"{image.name}.png").as_posix()
+            image.save_render(image_path)
+            client.get().image_queue.put(image_path)
         return {"FINISHED"}
 
 

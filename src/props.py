@@ -4,6 +4,8 @@ from .i18n.translations.zh_HANS import PROP_TCTX
 
 class McpProps(bpy.types.PropertyGroup):
     command: bpy.props.StringProperty(default="", name="Command", translation_context=PROP_TCTX)
+    image: bpy.props.PointerProperty(type=bpy.types.Image, name="Image")
+    use_viewport_image: bpy.props.BoolProperty(default=False, name="Use Viewport Image")
 
 
 def register():
