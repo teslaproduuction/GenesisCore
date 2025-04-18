@@ -94,7 +94,10 @@ class PkgInstaller:
 
 # Registration functions
 def register():
-    PkgInstaller.try_install("mcp")
+    PkgInstaller.try_install(
+        "mcp",
+        "websockets",
+    )
     reg()
 
 
