@@ -6,3 +6,8 @@ from .object_tools import ObjectTools
 from .polyhaven_tools import PolyhavenTools
 # from .modifier_tools import ModifierTools
 
+def register():
+    ToolsPackageBase.register()
+
+def unregister():
+    ToolsPackageBase.unregister()

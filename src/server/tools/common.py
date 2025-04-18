@@ -5,7 +5,7 @@ class ToolsPackageBase:
     "Base class for all tools"
 
     __tools__: dict[str, "ToolsPackageBase"] = {}
-    __exclude_tool_names__: set[str] = {"draw_pref_props"}
+    __exclude_tool_names__: set[str] = {"draw_pref_props", "register", "unregister"}
     __pref_props__: dict = {}
 
     @classmethod
@@ -39,6 +39,11 @@ class ToolsPackageBase:
         pass
 
     @classmethod
+    def get_pref(cls):
+        from ...preference import get_pref
+        return get_pref()
+
+    @classmethod
     def get_all_tools(cls):
         tools = []
         for pname in cls.__dict__:
@@ -52,3 +57,19 @@ class ToolsPackageBase:
             # 只添加函数
             tools.append(p)
         return tools
+
+    @classmethod
+    def register(cls):
+        for t in cls.get_all_tool_packages():
+            try:
+                t.register()
+            except Exception as e:
+                print(e)
+
+    @classmethod
+    def unregister(cls):
+        for t in cls.get_all_tool_packages():
+            try:
+                t.unregister()
+            except Exception as e:
+                print(e)
