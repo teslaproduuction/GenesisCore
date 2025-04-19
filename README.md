@@ -5,8 +5,9 @@
 A Blender automation addon driven by large language models (e.g. Deepseek, Claude).\
 Using MCP protocol standardized interface, supports multiple LLM providers including DeepSeek, OpenAI, Anthropic, OpenRouter, SilicorFlow, etc.
 
-## Manuals / 手册
+## Руководство / Manuals / 手册
 
+* [Русский](./README_RU.md)
 * [中文](./README_CN.md)
 * [English](./README.md)
 
@@ -31,7 +32,7 @@ Using MCP protocol standardized interface, supports multiple LLM providers inclu
 ### Windows
 
 * Method 1: Using ZIP package
-  1. Download package: <https://github.com/AIGODLIKE/GenesisCore.git>
+  1. Download package: <https://github.com/teslaproduuction/GenesisCore.git>
   2. Blender -> Preferences -> Add-ons: Install from ZIP
   3. Or drag ZIP file directly into Blender window and follow prompts
 
