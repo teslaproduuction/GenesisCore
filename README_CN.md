@@ -7,6 +7,7 @@
 
 ## 手册 / Manuals
 
+* [Русский](./README_RU.md)
 * [中文](./README_CN.md)
 * [English](./README.md)
 
